@@ -1,121 +1,218 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'theme/app_theme.dart';
+import 'screens/home_screen.dart';
+import 'screens/tracker_screen.dart';
+import 'screens/report_screen.dart';
+import 'screens/settings_screen.dart';
+import 'widgets/act_icon.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const TimeManagementApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class TimeManagementApp extends StatefulWidget {
+  const TimeManagementApp({super.key});
 
-  // This widget is the root of your application.
+  @override
+  State<TimeManagementApp> createState() => _TimeManagementAppState();
+}
+
+class _TimeManagementAppState extends State<TimeManagementApp> {
+  String _themeName = 'amber';
+
   @override
   Widget build(BuildContext context) {
+    final colors = AppThemes.byName(_themeName);
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: '行動時間管理',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        scaffoldBackgroundColor: colors.bg,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: AppShell(
+        colors: colors,
+        themeName: _themeName,
+        onThemeChange: (name) => setState(() => _themeName = name),
+      ),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class AppShell extends StatefulWidget {
+  final AppColors colors;
+  final String themeName;
+  final void Function(String) onThemeChange;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const AppShell({
+    super.key,
+    required this.colors,
+    required this.themeName,
+    required this.onThemeChange,
+  });
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<AppShell> createState() => _AppShellState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _AppShellState extends State<AppShell> {
+  int _tab = 0;
 
-  void _incrementCounter() {
+  String? _activeId;
+  int _elapsed = 0;
+  bool _paused = false;
+  Timer? _timer;
+
+  void _startOrSwitch(String id) {
+    if (_activeId == id) return;
+    _timer?.cancel();
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _activeId = id;
+      _elapsed = 0;
+      _paused = false;
     });
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_paused) setState(() => _elapsed++);
+    });
+  }
+
+  void _togglePause() => setState(() => _paused = !_paused);
+
+  void _stop() {
+    _timer?.cancel();
+    setState(() { _activeId = null; _elapsed = 0; _paused = false; });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+    final c = widget.colors;
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
+    ));
+
+    final screens = [
+      HomeScreen(
+        colors: c,
+        activeId: _activeId,
+        elapsed: _elapsed,
+        paused: _paused,
+        onPause: _togglePause,
+        onGoTracker: () => setState(() => _tab = 1),
+        onGoSettings: () => setState(() => _tab = 3),
+        onSelectActivity: (_) => setState(() => _tab = 1),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      TrackerScreen(
+        colors: c,
+        activeId: _activeId,
+        elapsed: _elapsed,
+        paused: _paused,
+        onTap: _startOrSwitch,
+        onPause: _togglePause,
+        onStop: _stop,
+      ),
+      ReportScreen(colors: c),
+      SettingsScreen(
+        colors: c,
+        themeName: widget.themeName,
+        onThemeChange: widget.onThemeChange,
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: c.bg,
+      body: Stack(
+        children: [
+          screens[_tab],
+          Positioned(
+            left: 0, right: 0, bottom: 0,
+            child: _BottomTabBar(
+              current: _tab,
+              colors: c,
+              onTap: (i) => setState(() => _tab = i),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomTabBar extends StatelessWidget {
+  final int current;
+  final AppColors colors;
+  final void Function(int) onTap;
+
+  const _BottomTabBar({required this.current, required this.colors, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    final tabs = [
+      ('home', 'ホーム'),
+      ('timer', '計測'),
+      ('chart', 'レポート'),
+      ('gear', '設定'),
+    ];
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [c.bg, c.bg.withAlpha(0)],
+          stops: const [0.6, 1.0],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPad + 10),
+      child: Container(
+        height: 58,
+        decoration: BoxDecoration(
+          color: c.card,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: c.line),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF2A1E14).withAlpha(20), blurRadius: 30, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Row(
+          children: tabs.asMap().entries.map((entry) {
+            final i = entry.key;
+            final t = entry.value;
+            final active = current == i;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ActIcon(icon: t.$1, size: 22, color: active ? c.accent : c.inkMuted),
+                    const SizedBox(height: 2),
+                    Text(
+                      t.$2,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                        color: active ? c.accent : c.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
