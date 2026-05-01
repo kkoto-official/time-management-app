@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>行動時間管理App — Prototype</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #2a1e14; font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", system-ui, sans-serif; -webkit-font-smoothing: antialiased; color: #2a1e14; }
+  body { min-height: 100vh; }
+  #root { min-height: 100vh; }
+  button { font-family: inherit; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-system.jsx"></script>
+<script type="text/babel" src="home-screen.jsx"></script>
+<script type="text/babel" src="tracker-screen.jsx"></script>
+<script type="text/babel" src="detail-screens.jsx"></script>
+<script type="text/babel" src="tab-bar.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "amber",
+  "cols": 2,
+  "homeLayout": "donut",
+  "liveEffect": "pulse"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweaksRaw] = React.useState(TWEAK_DEFAULTS);
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+  const setTweaks = (patch) => {
+    const next = { ...tweaks, ...patch };
+    setTweaksRaw(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: patch }, '*');
+  };
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const theme = THEMES[tweaks.theme] || THEMES.terracotta;
+  const [screen, setScreen] = React.useState(() => localStorage.getItem('t_screen') || 'home');
+  const [period, setPeriod] = React.useState('day');
+  const [activities, setActivities] = React.useState(['workA','workB','game','move','sleep','other']);
+  const [selectedActivity, setSelectedActivity] = React.useState('workA');
+  const [activeId, setActiveId] = React.useState('workA');
+  const [startTime, setStartTime] = React.useState(Date.now() - 72*60*1000); // ~72 minutes in
+  const [pausedAt, setPausedAt] = React.useState(null);
+  const [paused, setPaused] = React.useState(false);
+  const [now, setNow] = React.useState(Date.now());
+
+  React.useEffect(() => {
+    const t = setInterval(() => { if (!paused) setNow(Date.now()); }, 1000);
+    return () => clearInterval(t);
+  }, [paused]);
+
+  const elapsed = activeId && startTime ? Math.floor(((paused ? pausedAt : now) - startTime) / 1000) : 0;
+
+  const goto = (s) => { setScreen(s); localStorage.setItem('t_screen', s); };
+  const selectActivity = (id) => { setSelectedActivity(id); goto('detail'); };
+
+  const tapTile = (id) => {
+    if (id === activeId) {
+      // same tile: stop
+      setActiveId(null); setStartTime(null); setPaused(false);
+    } else {
+      setActiveId(id);
+      setStartTime(Date.now());
+      setPaused(false);
+    }
+  };
+  const togglePause = () => {
+    if (!activeId) return;
+    if (paused) {
+      // resume: shift startTime by pause duration
+      setStartTime(startTime + (Date.now() - pausedAt));
+      setPaused(false);
+    } else {
+      setPausedAt(Date.now());
+      setPaused(true);
+    }
+  };
+  const stopTimer = () => { setActiveId(null); setStartTime(null); setPaused(false); };
+
+  const onCreate = ({ name, icon, image, color }) => {
+    const id = 'custom_' + Date.now();
+    ACTIVITIES.push({ id, label: name, color, tint: color + '26', icon, image });
+    setActivities([...activities, id]);
+  };
+  const onUpdate = (id, patch) => {
+    const a = ACTIVITIES.find(x => x.id === id);
+    if (a) Object.assign(a, patch, { tint: (patch.color || a.color) + '26' });
+    setEditingActId(null);
+  };
+  const onDelete = (id) => {
+    const i = ACTIVITIES.findIndex(x => x.id === id);
+    if (i >= 0) ACTIVITIES.splice(i, 1);
+    setActivities(activities.filter(x => x !== id));
+    if (activeId === id) { setActiveId(null); setStartTime(null); }
+    setEditingActId(null);
+  };
+  const [editingActId, setEditingActId] = React.useState(null);
+  const openEdit = (id) => { setEditingActId(id); setScreen('create'); localStorage.setItem('t_screen','create'); };
+
+  let content;
+  if (screen === 'home') {
+    content = <>
+      <HomeScreen theme={theme} period={period} setPeriod={setPeriod}
+        onSelectActivity={selectActivity}
+        activeId={activeId} elapsed={elapsed} paused={paused} onPause={togglePause}
+        goto={goto} homeLayout={tweaks.homeLayout} />
+      {tweaks.homeLayout === 'timeline' && (
+        <div style={{ marginTop: -110, position: 'relative', zIndex: 1 }}>
+          <TimelineView theme={theme} />
+        </div>
+      )}
+    </>;
+  } else if (screen === 'tracker') {
+    content = <TrackerScreen theme={theme} activities={activities} setActivities={setActivities}
+      activeId={activeId} elapsed={elapsed} paused={paused}
+      onTap={tapTile} onPause={togglePause} onStop={stopTimer}
+      cols={tweaks.cols} setCols={(c) => setTweaks({ cols: c })}
+      goto={goto} onEditActivity={openEdit} />;
+  } else if (screen === 'detail') {
+    content = <ActivityDetail theme={theme} activityId={selectedActivity} goto={goto} />;
+  } else if (screen === 'create') {
+    const editingAct = editingActId ? ACTIVITIES.find(a => a.id === editingActId) : null;
+    content = <CreateScreen theme={theme} goto={(s)=>{ setEditingActId(null); goto(s); }} onCreate={onCreate} onUpdate={onUpdate} onDelete={onDelete} editing={editingAct} />;
+  } else if (screen === 'report') {
+    content = <ReportScreen theme={theme} goto={goto} />;
+  } else if (screen === 'settings') {
+    content = <SettingsScreen theme={theme} themeName={tweaks.theme}
+      setThemeName={(t) => setTweaks({ theme: t })} goto={goto} />;
+  }
+
+  const showTabBar = !['create'].includes(screen);
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: `radial-gradient(1200px 800px at 70% 0%, ${theme.bgDeep}, ${theme.ink} 120%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '40px 20px',
+    }}>
+      {/* ambient warmth */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none',
+        background: `radial-gradient(600px 400px at 20% 80%, ${theme.accent}20, transparent 60%)`,
+      }} />
+
+      <div data-screen-label="01 Prototype" style={{ position: 'relative' }}>
+        <IOSDevice width={402} height={874}>
+          <div style={{ height: '100%', overflow: 'auto', position: 'relative' }}>
+            {content}
+            {showTabBar && <TabBar current={screen} goto={goto} theme={theme} />}
+          </div>
+        </IOSDevice>
+      </div>
+
+      {tweaksOpen && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} onClose={() => setTweaksOpen(false)} />}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
