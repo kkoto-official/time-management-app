@@ -304,7 +304,7 @@ class _CategoryRow extends StatelessWidget {
             Container(
               width: 38, height: 38,
               decoration: BoxDecoration(color: act.tint, borderRadius: BorderRadius.circular(10)),
-              child: Center(child: ActIcon(icon: act.icon, size: 20, color: act.color)),
+              child: Center(child: ActIcon(icon: act.icon, size: 20, color: act.color, imagePath: act.imagePath)),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -368,7 +368,7 @@ class _LiveBar extends StatelessWidget {
             Container(
               width: 34, height: 34,
               decoration: BoxDecoration(color: Colors.white.withAlpha(56), borderRadius: BorderRadius.circular(10)),
-              child: Center(child: ActIcon(icon: act.icon, size: 18, color: Colors.white)),
+              child: Center(child: ActIcon(icon: act.icon, size: 18, color: Colors.white, imagePath: act.imagePath)),
             ),
             const SizedBox(width: 10),
             Expanded(

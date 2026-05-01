@@ -6,6 +6,7 @@ class Activity {
   final Color color;
   final Color tint;
   final String icon;
+  final String? imagePath;
 
   const Activity({
     required this.id,
@@ -13,15 +14,17 @@ class Activity {
     required this.color,
     required this.tint,
     required this.icon,
+    this.imagePath,
   });
 
-  Activity copyWith({String? label, Color? color, Color? tint, String? icon}) {
+  Activity copyWith({String? label, Color? color, Color? tint, String? icon, String? imagePath}) {
     return Activity(
       id: id,
       label: label ?? this.label,
       color: color ?? this.color,
       tint: tint ?? this.tint,
       icon: icon ?? this.icon,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 }

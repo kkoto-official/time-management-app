@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -5,11 +6,22 @@ class ActIcon extends StatelessWidget {
   final String icon;
   final double size;
   final Color color;
+  final String? imagePath;
 
-  const ActIcon({super.key, required this.icon, this.size = 24, required this.color});
+  const ActIcon({super.key, required this.icon, this.size = 24, required this.color, this.imagePath});
 
   @override
   Widget build(BuildContext context) {
+    if (imagePath != null) {
+      return SizedBox(
+        width: size * 1.4,
+        height: size * 1.4,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.3),
+          child: Image.file(File(imagePath!), fit: BoxFit.cover),
+        ),
+      );
+    }
     return CustomPaint(
       size: Size(size, size),
       painter: _IconPainter(icon: icon, color: color),
