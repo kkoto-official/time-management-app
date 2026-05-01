@@ -9,6 +9,7 @@ class TrackerScreen extends StatefulWidget {
   final String? activeId;
   final int elapsed;
   final bool paused;
+  final DateTime? startTime;
   final void Function(String) onTap;
   final VoidCallback onPause;
   final VoidCallback onStop;
@@ -19,6 +20,7 @@ class TrackerScreen extends StatefulWidget {
     this.activeId,
     this.elapsed = 0,
     this.paused = false,
+    this.startTime,
     required this.onTap,
     required this.onPause,
     required this.onStop,
@@ -121,6 +123,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             activeId: widget.activeId,
             elapsed: widget.elapsed,
             paused: widget.paused,
+            startTime: widget.startTime,
             onPause: widget.onPause,
             onStop: widget.onStop,
             colors: c,
@@ -181,13 +184,14 @@ class _LiveTimerBar extends StatelessWidget {
   final String? activeId;
   final int elapsed;
   final bool paused;
+  final DateTime? startTime;
   final VoidCallback onPause;
   final VoidCallback onStop;
   final AppColors colors;
 
   const _LiveTimerBar({
     required this.activeId, required this.elapsed, required this.paused,
-    required this.onPause, required this.onStop, required this.colors,
+    this.startTime, required this.onPause, required this.onStop, required this.colors,
   });
 
   @override
@@ -244,7 +248,8 @@ class _LiveTimerBar extends StatelessWidget {
               const SizedBox(width: 6),
               Text(paused ? '一時停止中' : '計測中', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Colors.white)),
               const Spacer(),
-              Text('開始 ${TimeOfDay.now().format(context)}', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              if (startTime != null)
+                Text('開始 ${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 11, color: Colors.white70)),
             ],
           ),
           const SizedBox(height: 6),

@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
 class DonutSegment {
+  final String id;
   final Color color;
   final int value;
-  const DonutSegment({required this.color, required this.value});
+  const DonutSegment({required this.id, required this.color, required this.value});
 }
 
 class DonutChart extends StatelessWidget {

@@ -16,12 +16,23 @@ class _ReportScreenState extends State<ReportScreen> {
   String _period = 'week';
 
   Map<String, int> get _totals {
-    final data = _period == 'week' ? kWeekData : kWeekData;
+    // day: use kTodayMin directly; week/month/year: aggregate kWeekData (month/year uses repetitions as proxy)
+    if (_period == 'day') return kTodayMin;
     final result = <String, int>{};
-    for (final day in data) {
-      day.minutes.forEach((k, v) { result[k] = (result[k] ?? 0) + v; });
+    final multiplier = _period == 'month' ? 4 : _period == 'year' ? 52 : 1;
+    for (final day in kWeekData) {
+      day.minutes.forEach((k, v) { result[k] = (result[k] ?? 0) + v * multiplier; });
     }
     return result;
+  }
+
+  String _avgLabel(int sumAll) {
+    switch (_period) {
+      case 'week': return '/ 日平均 ${fmtHMShort(sumAll ~/ 7)}';
+      case 'month': return '/ 日平均 ${fmtHMShort(sumAll ~/ 30)}';
+      case 'year': return '/ 月平均 ${fmtHMShort(sumAll ~/ 12)}';
+      default: return '';
+    }
   }
 
   String get _subtitle {
@@ -113,7 +124,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     children: [
                       Text(fmtHMShort(sumAll), style: TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -1)),
                       const SizedBox(width: 10),
-                      Text('/ 日平均 ${fmtHMShort(sumAll ~/ 7)}', style: TextStyle(fontSize: 13, color: c.inkMuted)),
+                      Text(_avgLabel(sumAll), style: TextStyle(fontSize: 13, color: c.inkMuted)),
                     ],
                   ),
                   const SizedBox(height: 18),

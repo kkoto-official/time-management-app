@@ -62,15 +62,18 @@ class _AppShellState extends State<AppShell> {
   String? _activeId;
   int _elapsed = 0;
   bool _paused = false;
+  DateTime? _startTime;
   Timer? _timer;
 
   void _startOrSwitch(String id) {
     if (_activeId == id) return;
     _timer?.cancel();
+    final now = DateTime.now();
     setState(() {
       _activeId = id;
       _elapsed = 0;
       _paused = false;
+      _startTime = now;
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_paused) setState(() => _elapsed++);
@@ -81,7 +84,7 @@ class _AppShellState extends State<AppShell> {
 
   void _stop() {
     _timer?.cancel();
-    setState(() { _activeId = null; _elapsed = 0; _paused = false; });
+    setState(() { _activeId = null; _elapsed = 0; _paused = false; _startTime = null; });
   }
 
   @override
@@ -115,6 +118,7 @@ class _AppShellState extends State<AppShell> {
         activeId: _activeId,
         elapsed: _elapsed,
         paused: _paused,
+        startTime: _startTime,
         onTap: _startOrSwitch,
         onPause: _togglePause,
         onStop: _stop,
@@ -131,7 +135,7 @@ class _AppShellState extends State<AppShell> {
       backgroundColor: c.bg,
       body: Stack(
         children: [
-          screens[_tab],
+          IndexedStack(index: _tab, children: screens),
           Positioned(
             left: 0, right: 0, bottom: 0,
             child: _BottomTabBar(

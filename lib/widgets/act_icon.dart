@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class ActIcon extends StatelessWidget {
@@ -103,16 +104,18 @@ class _IconPainter extends CustomPainter {
         break;
       case 'gear':
         _circle(canvas, paint, 12, 12, 3);
-        for (final angle in [0.0, 90.0, 180.0, 270.0]) {
-          final rad = angle * 3.14159 / 180;
-          final cx = 12 + 7 * sin(rad);
-          final cy = 12 - 7 * cos(rad);
-          _dot(canvas, color, cx, cy, 1.2);
-        }
         _path(canvas, paint, [Offset(12, 2), Offset(12, 5)]);
         _path(canvas, paint, [Offset(12, 19), Offset(12, 22)]);
         _path(canvas, paint, [Offset(2, 12), Offset(5, 12)]);
         _path(canvas, paint, [Offset(19, 12), Offset(22, 12)]);
+        for (final deg in [45.0, 135.0, 225.0, 315.0]) {
+          final rad = deg * math.pi / 180;
+          final x1 = 12 + 5.3 * math.cos(rad);
+          final y1 = 12 + 5.3 * math.sin(rad);
+          final x2 = 12 + 7.5 * math.cos(rad);
+          final y2 = 12 + 7.5 * math.sin(rad);
+          _path(canvas, paint, [Offset(x1, y1), Offset(x2, y2)]);
+        }
         break;
       case 'play':
         final fillPaint = Paint()..color = color..style = PaintingStyle.fill;
@@ -159,16 +162,6 @@ class _IconPainter extends CustomPainter {
         break;
     }
   }
-
-  double sin(double rad) => _sin(rad);
-  double cos(double rad) => _cos(rad);
-
-  static double _sin(double x) {
-    x = x % (2 * 3.14159265);
-    return x - (x * x * x) / 6 + (x * x * x * x * x) / 120;
-  }
-
-  static double _cos(double x) => _sin(x + 3.14159265 / 2);
 
   void _rect(Canvas canvas, Paint paint, double x, double y, double w, double h, {double r = 0}) {
     canvas.drawRRect(

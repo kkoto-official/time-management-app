@@ -31,6 +31,13 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+String _todayLabel() {
+  final now = DateTime.now();
+  const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+  final wd = weekdays[now.weekday - 1];
+  return '${now.year}年${now.month}月${now.day}日 $wd曜';
+}
+
 class _HomeScreenState extends State<HomeScreen> {
   String _period = 'day';
 
@@ -53,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final segments = kActivities
         .where((a) => (data[a.id] ?? 0) > 0)
-        .map((a) => DonutSegment(color: a.color, value: data[a.id]!))
+        .map((a) => DonutSegment(id: a.id, color: a.color, value: data[a.id]!))
         .toList();
 
     final centerLabel = _period == 'day' ? '記録' : _period == 'week' ? '今週' : '今月';
@@ -77,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '2026年5月2日 土曜',
+                        _todayLabel(),
                         style: TextStyle(
                           fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600,
                           color: c.inkMuted,
@@ -153,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: segments.take(4).map((seg) {
-                        final act = kActivities.firstWhere((a) => a.color == seg.color);
+                        final act = getActivity(seg.id);
                         final pct = total > 0 ? ((seg.value / total) * 100).round() : 0;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -197,10 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(20)),
               child: Column(
-                children: sorted.map((entry) {
-                  final act = getActivity(entry.key);
-                  final pct = total > 0 ? entry.value / total : 0.0;
-                  return _CategoryRow(act: act, minutes: entry.value, pct: pct, colors: c, onTap: () => widget.onSelectActivity(entry.key));
+                children: sorted.asMap().entries.map((e) {
+                  final act = getActivity(e.value.key);
+                  final pct = total > 0 ? e.value.value / total : 0.0;
+                  final isLast = e.key == sorted.length - 1;
+                  return _CategoryRow(act: act, minutes: e.value.value, pct: pct, colors: c, isLast: isLast, onTap: () => widget.onSelectActivity(e.value.key));
                 }).toList(),
               ),
             ),
@@ -278,9 +286,10 @@ class _CategoryRow extends StatelessWidget {
   final int minutes;
   final double pct;
   final AppColors colors;
+  final bool isLast;
   final VoidCallback onTap;
 
-  const _CategoryRow({required this.act, required this.minutes, required this.pct, required this.colors, required this.onTap});
+  const _CategoryRow({required this.act, required this.minutes, required this.pct, required this.colors, this.isLast = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +298,7 @@ class _CategoryRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
+        decoration: isLast ? null : BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
         child: Row(
           children: [
             Container(
