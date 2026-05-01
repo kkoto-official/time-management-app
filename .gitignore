@@ -1,23 +1,25 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Build outputs
-dist/
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
 build/
-.expo/
-.expo-shared/
+*.iml
+
+# Flutter generated files
+lib/generated_plugin_registrant.dart
 
 # iOS
 ios/Pods/
 ios/build/
+ios/.symlinks/
 *.ipa
 *.xcarchive
 
 # Android
 android/build/
 android/app/build/
+android/.gradle/
 *.apk
 *.aab
 *.keystore
@@ -43,3 +45,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Claude Code
+.claude/
