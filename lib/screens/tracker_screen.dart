@@ -43,6 +43,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
+  Set<String> get _existingLabels => {
+    ...kActivities.map((a) => a.label),
+    ..._customActivities.map((a) => a.label),
+  };
+
   void _showCreateSheet() {
     showModalBottomSheet(
       context: context,
@@ -50,6 +55,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _CreateActivitySheet(
         colors: widget.colors,
+        existingLabels: _existingLabels,
         onSave: (act) {
           setState(() {
             _customActivities.add(act);
@@ -457,9 +463,10 @@ const _kColorChoices = [
 
 class _CreateActivitySheet extends StatefulWidget {
   final AppColors colors;
+  final Set<String> existingLabels;
   final void Function(Activity) onSave;
 
-  const _CreateActivitySheet({required this.colors, required this.onSave});
+  const _CreateActivitySheet({required this.colors, required this.existingLabels, required this.onSave});
 
   @override
   State<_CreateActivitySheet> createState() => _CreateActivitySheetState();
@@ -469,12 +476,20 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
   final _nameController = TextEditingController(text: '新規');
   String _icon = 'briefcase';
   Color _color = _kColorChoices[0];
+  String? _nameError;
 
   Color _tintFrom(Color c) => c.withAlpha(51);
 
   void _save() {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      setState(() => _nameError = '名前を入力してください');
+      return;
+    }
+    if (widget.existingLabels.contains(name)) {
+      setState(() => _nameError = '「$name」はすでに存在します');
+      return;
+    }
     final act = Activity(
       id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
       label: name,
@@ -544,23 +559,38 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
           // 名前入力
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
-              child: Row(
-                children: [
-                  Text('名前', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _nameController,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
-                      decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
-                      autofocus: true,
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: c.card,
+                    borderRadius: BorderRadius.circular(14),
+                    border: _nameError != null ? Border.all(color: Colors.red.shade400, width: 1.5) : null,
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      Text('名前', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _nameController,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
+                          decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                          autofocus: true,
+                          onChanged: (_) { if (_nameError != null) setState(() => _nameError = null); },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_nameError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: Text(_nameError!, style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -569,28 +599,29 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('アイコン', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
                     children: _kIconChoices.map((ico) {
                       final selected = _icon == ico;
                       return GestureDetector(
                         onTap: () => setState(() => _icon = ico),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 120),
-                          width: 42, height: 42,
+                          width: 46, height: 46,
                           decoration: BoxDecoration(
                             color: selected ? _color.withAlpha(30) : c.bgDeep,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(13),
                             border: selected ? Border.all(color: _color, width: 2) : null,
                           ),
-                          child: Center(child: ActIcon(icon: ico, size: 20, color: selected ? _color : c.inkMuted)),
+                          child: Center(child: ActIcon(icon: ico, size: 22, color: selected ? _color : c.inkMuted)),
                         ),
                       );
                     }).toList(),
@@ -605,22 +636,23 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
               decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('カラー', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
                     children: _kColorChoices.map((col) {
                       final selected = _color == col;
                       return GestureDetector(
                         onTap: () => setState(() => _color = col),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 120),
-                          width: 34, height: 34,
+                          width: 36, height: 36,
                           decoration: BoxDecoration(
                             color: col,
                             shape: BoxShape.circle,
