@@ -34,6 +34,31 @@ class _TrackerScreenState extends State<TrackerScreen> {
   int _cols = 2;
   bool _editing = false;
   final List<String> _order = ['workA', 'workB', 'game', 'move', 'sleep', 'other'];
+  final List<Activity> _customActivities = [];
+
+  Activity _getActivity(String id) {
+    return _customActivities.firstWhere(
+      (a) => a.id == id,
+      orElse: () => getActivity(id),
+    );
+  }
+
+  void _showCreateSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CreateActivitySheet(
+        colors: widget.colors,
+        onSave: (act) {
+          setState(() {
+            _customActivities.add(act);
+            _order.add(act.id);
+          });
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,10 +181,10 @@ class _TrackerScreenState extends State<TrackerScreen> {
               itemCount: _order.length + 1,
               itemBuilder: (context, index) {
                 if (index == _order.length) {
-                  return _AddTile(colors: c, onTap: () {});
+                  return _AddTile(colors: c, onTap: _showCreateSheet);
                 }
                 final id = _order[index];
-                final act = getActivity(id);
+                final act = _getActivity(id);
                 final isActive = widget.activeId == id;
                 return _ActivityTile(
                   act: act,
@@ -416,6 +441,202 @@ class _AddTile extends StatelessWidget {
             Text('追加', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.inkMuted)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Create Activity Sheet ────────────────────────────────────
+
+const _kIconChoices = ['briefcase', 'laptop', 'gamepad', 'train', 'moon', 'book', 'dots', 'plus', 'chart', 'timer'];
+const _kColorChoices = [
+  Color(0xFFB3541B), Color(0xFFC2410C), Color(0xFF8A6A2E), Color(0xFF7A6A1F),
+  Color(0xFFA04668), Color(0xFF4A6B52), Color(0xFF3D5A80), Color(0xFF6B5A4B),
+  Color(0xFFA0522D), Color(0xFF9A3F3F),
+];
+
+class _CreateActivitySheet extends StatefulWidget {
+  final AppColors colors;
+  final void Function(Activity) onSave;
+
+  const _CreateActivitySheet({required this.colors, required this.onSave});
+
+  @override
+  State<_CreateActivitySheet> createState() => _CreateActivitySheetState();
+}
+
+class _CreateActivitySheetState extends State<_CreateActivitySheet> {
+  final _nameController = TextEditingController(text: '新規');
+  String _icon = 'briefcase';
+  Color _color = _kColorChoices[0];
+
+  Color _tintFrom(Color c) => c.withAlpha(51);
+
+  void _save() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    final act = Activity(
+      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      label: name,
+      color: _color,
+      tint: _tintFrom(_color),
+      icon: _icon,
+    );
+    widget.onSave(act);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.colors;
+    final bottomPad = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: bottomPad),
+      decoration: BoxDecoration(
+        color: c.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ハンドル
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2)),
+          ),
+          // タイトル行
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Text('キャンセル', style: TextStyle(fontSize: 15, color: c.inkMuted)),
+                ),
+                const Spacer(),
+                Text('新規アクティビティ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.ink)),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _save,
+                  child: Text('追加', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.accent)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // プレビュー
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(color: _color, borderRadius: BorderRadius.circular(20)),
+            child: Center(child: ActIcon(icon: _icon, size: 32, color: Colors.white)),
+          ),
+          const SizedBox(height: 20),
+
+          // 名前入力
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
+              child: Row(
+                children: [
+                  Text('名前', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _nameController,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c.ink),
+                      decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                      autofocus: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // アイコン選択
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('アイコン', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: _kIconChoices.map((ico) {
+                      final selected = _icon == ico;
+                      return GestureDetector(
+                        onTap: () => setState(() => _icon = ico),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 120),
+                          width: 42, height: 42,
+                          decoration: BoxDecoration(
+                            color: selected ? _color.withAlpha(30) : c.bgDeep,
+                            borderRadius: BorderRadius.circular(12),
+                            border: selected ? Border.all(color: _color, width: 2) : null,
+                          ),
+                          child: Center(child: ActIcon(icon: ico, size: 20, color: selected ? _color : c.inkMuted)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // カラー選択
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('カラー', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkMuted)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: _kColorChoices.map((col) {
+                      final selected = _color == col;
+                      return GestureDetector(
+                        onTap: () => setState(() => _color = col),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 120),
+                          width: 34, height: 34,
+                          decoration: BoxDecoration(
+                            color: col,
+                            shape: BoxShape.circle,
+                            border: selected ? Border.all(color: c.ink, width: 3) : null,
+                            boxShadow: selected ? [BoxShadow(color: col.withAlpha(100), blurRadius: 8)] : null,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+        ],
       ),
     );
   }
