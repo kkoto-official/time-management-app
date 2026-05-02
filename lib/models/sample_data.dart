@@ -10,7 +10,7 @@ const kActivities = [
   Activity(id: 'other', label: 'その他', color: Color(0xFF6B5A4B), tint: Color(0xFFE2D8CD), icon: 'dots'),
 ];
 
-const kTodayMin = {
+final kTodayMin = <String, int>{
   'workA': 218,
   'workB': 74,
   'game':  52,

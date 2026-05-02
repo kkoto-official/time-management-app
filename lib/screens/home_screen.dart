@@ -8,10 +8,12 @@ import '../widgets/act_icon.dart';
 class HomeScreen extends StatefulWidget {
   final AppColors colors;
   final String? activeId;
+  final Activity? activeActivity;
   final int elapsed;
   final bool paused;
   final VoidCallback onPause;
   final VoidCallback onGoTracker;
+  final VoidCallback onGoReport;
   final VoidCallback onGoSettings;
   final void Function(String) onSelectActivity;
 
@@ -19,10 +21,12 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.colors,
     this.activeId,
+    this.activeActivity,
     this.elapsed = 0,
     this.paused = false,
     required this.onPause,
     required this.onGoTracker,
+    required this.onGoReport,
     required this.onGoSettings,
     required this.onSelectActivity,
   });
@@ -118,8 +122,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
 
           // Live bar
-          if (widget.activeId != null) _LiveBar(
-            activeId: widget.activeId!,
+          if (widget.activeActivity != null) _LiveBar(
+            activeActivity: widget.activeActivity!,
             elapsed: widget.elapsed,
             paused: widget.paused,
             colors: c,
@@ -190,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text('カテゴリ別', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: 0.6)),
                 const Spacer(),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: widget.onGoReport,
                   child: Text('詳細レポート →', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: c.accent)),
                 ),
               ],
@@ -338,7 +342,7 @@ class _CategoryRow extends StatelessWidget {
 }
 
 class _LiveBar extends StatelessWidget {
-  final String activeId;
+  final Activity activeActivity;
   final int elapsed;
   final bool paused;
   final AppColors colors;
@@ -346,13 +350,13 @@ class _LiveBar extends StatelessWidget {
   final VoidCallback onPause;
 
   const _LiveBar({
-    required this.activeId, required this.elapsed, required this.paused,
+    required this.activeActivity, required this.elapsed, required this.paused,
     required this.colors, required this.onTap, required this.onPause,
   });
 
   @override
   Widget build(BuildContext context) {
-    final act = getActivity(activeId);
+    final act = activeActivity;
     return GestureDetector(
       onTap: onTap,
       child: Container(

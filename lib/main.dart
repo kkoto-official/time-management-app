@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
+import 'models/activity.dart';
+import 'models/sample_data.dart';
 import 'screens/home_screen.dart';
 import 'screens/tracker_screen.dart';
 import 'screens/report_screen.dart';
@@ -60,17 +62,19 @@ class _AppShellState extends State<AppShell> {
   int _tab = 0;
 
   String? _activeId;
+  Activity? _activeActivity;
   int _elapsed = 0;
   bool _paused = false;
   DateTime? _startTime;
   Timer? _timer;
 
-  void _startOrSwitch(String id) {
+  void _startOrSwitch(String id, Activity activity) {
     if (_activeId == id) return;
     _timer?.cancel();
     final now = DateTime.now();
     setState(() {
       _activeId = id;
+      _activeActivity = activity;
       _elapsed = 0;
       _paused = false;
       _startTime = now;
@@ -83,8 +87,20 @@ class _AppShellState extends State<AppShell> {
   void _togglePause() => setState(() => _paused = !_paused);
 
   void _stop() {
+    if (_activeId != null) {
+      final mins = _elapsed ~/ 60;
+      if (mins > 0) {
+        kTodayMin[_activeId!] = (kTodayMin[_activeId!] ?? 0) + mins;
+      }
+    }
     _timer?.cancel();
-    setState(() { _activeId = null; _elapsed = 0; _paused = false; _startTime = null; });
+    setState(() {
+      _activeId = null;
+      _activeActivity = null;
+      _elapsed = 0;
+      _paused = false;
+      _startTime = null;
+    });
   }
 
   @override
@@ -106,12 +122,17 @@ class _AppShellState extends State<AppShell> {
       HomeScreen(
         colors: c,
         activeId: _activeId,
+        activeActivity: _activeActivity,
         elapsed: _elapsed,
         paused: _paused,
         onPause: _togglePause,
         onGoTracker: () => setState(() => _tab = 1),
+        onGoReport: () => setState(() => _tab = 2),
         onGoSettings: () => setState(() => _tab = 3),
-        onSelectActivity: (_) => setState(() => _tab = 1),
+        onSelectActivity: (id) {
+          _startOrSwitch(id, getActivity(id));
+          setState(() => _tab = 1);
+        },
       ),
       TrackerScreen(
         colors: c,

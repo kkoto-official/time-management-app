@@ -12,7 +12,7 @@ class TrackerScreen extends StatefulWidget {
   final int elapsed;
   final bool paused;
   final DateTime? startTime;
-  final void Function(String) onTap;
+  final void Function(String, Activity) onTap;
   final VoidCallback onPause;
   final VoidCallback onStop;
 
@@ -37,42 +37,79 @@ class _TrackerScreenState extends State<TrackerScreen> {
   bool _editing = false;
   final List<String> _order = ['workA', 'workB', 'game', 'move', 'sleep', 'other'];
   final List<Activity> _customActivities = [];
+  final Map<String, Activity> _overrides = {};
+  int? _draggingIndex;
+  int? _hoveredIndex;
 
   Activity _getActivity(String id) {
-    return _customActivities.firstWhere(
-      (a) => a.id == id,
-      orElse: () => getActivity(id),
-    );
+    if (_overrides.containsKey(id)) return _overrides[id]!;
+    return _customActivities.firstWhere((a) => a.id == id, orElse: () => getActivity(id));
   }
 
-  Set<String> get _existingLabels => {
+  Set<String> _existingLabelsExcluding(String? excludeLabel) => {
     ...kActivities.map((a) => a.label),
     ..._customActivities.map((a) => a.label),
-  };
+    ..._overrides.values.map((a) => a.label),
+  }..remove(excludeLabel);
 
   void _showCreateSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CreateActivitySheet(
+      builder: (_) => _ActivityFormSheet(
         colors: widget.colors,
-        existingLabels: _existingLabels,
-        onSave: (act) {
-          setState(() {
-            _customActivities.add(act);
-            _order.add(act.id);
-          });
-        },
+        existingLabels: _existingLabelsExcluding(null),
+        onSave: (act) => setState(() { _customActivities.add(act); _order.add(act.id); }),
       ),
     );
+  }
+
+  void _showEditSheet(String id) {
+    final act = _getActivity(id);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ActivityFormSheet(
+        colors: widget.colors,
+        existingLabels: _existingLabelsExcluding(act.label),
+        editing: act,
+        onSave: (updated) => setState(() {
+          final isCustom = _customActivities.any((a) => a.id == id);
+          if (isCustom) {
+            final i = _customActivities.indexWhere((a) => a.id == id);
+            _customActivities[i] = updated;
+          } else {
+            _overrides[id] = updated;
+          }
+        }),
+        onDelete: (delId) => setState(() {
+          _order.remove(delId);
+          _customActivities.removeWhere((a) => a.id == delId);
+          _overrides.remove(delId);
+        }),
+      ),
+    );
+  }
+
+  void _reorder(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex) return;
+    setState(() {
+      final item = _order.removeAt(fromIndex);
+      _order.insert(toIndex, item);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final tileWidth = (screenWidth - 32 - 10 * (_cols - 1)) / _cols;
+    final tileHeight = tileWidth / (_cols == 2 ? 1.2 : 1.05);
 
     return SingleChildScrollView(
+      physics: _draggingIndex != null ? const NeverScrollableScrollPhysics() : null,
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 16,
         bottom: 100,
@@ -113,13 +150,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                                 color: active ? c.card : Colors.transparent,
                                 borderRadius: BorderRadius.circular(7),
                               ),
-                              child: Center(
-                                child: Icon(
-                                  n == 2 ? Icons.grid_view : Icons.apps,
-                                  size: 18,
-                                  color: active ? c.ink : c.inkMuted,
-                                ),
-                              ),
+                              child: Center(child: Icon(n == 2 ? Icons.grid_view : Icons.apps, size: 18, color: active ? c.ink : c.inkMuted)),
                             ),
                           );
                         }).toList(),
@@ -127,7 +158,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                     ),
                     const SizedBox(width: 6),
                     GestureDetector(
-                      onTap: () => setState(() => _editing = !_editing),
+                      onTap: () => setState(() { _editing = !_editing; _draggingIndex = null; _hoveredIndex = null; }),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         height: 38,
@@ -138,10 +169,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                           border: _editing ? null : Border.all(color: c.line),
                         ),
                         child: Center(
-                          child: Text(
-                            _editing ? '完了' : '編集',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _editing ? c.bg : c.ink),
-                          ),
+                          child: Text(_editing ? '完了' : '編集', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _editing ? c.bg : c.ink)),
                         ),
                       ),
                     ),
@@ -153,13 +181,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
           // Live timer bar
           _LiveTimerBar(
-            activeId: widget.activeId,
-            elapsed: widget.elapsed,
-            paused: widget.paused,
-            startTime: widget.startTime,
-            onPause: widget.onPause,
-            onStop: widget.onStop,
-            colors: c,
+            activeId: widget.activeId, elapsed: widget.elapsed, paused: widget.paused,
+            startTime: widget.startTime, onPause: widget.onPause, onStop: widget.onStop, colors: c,
+            resolveActivity: _getActivity,
           ),
 
           if (widget.activeId == null && !_editing)
@@ -171,43 +195,82 @@ class _TrackerScreenState extends State<TrackerScreen> {
           if (_editing)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Text('タップで編集・−で削除', style: TextStyle(fontSize: 12, color: c.inkMuted)),
+              child: Text('長押しで並び替え・タップで編集', style: TextStyle(fontSize: 12, color: c.inkMuted)),
             ),
 
           // Activity grid
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: _cols,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: _cols == 2 ? 1.2 : 1.05,
-              ),
-              itemCount: _order.length + 1,
-              itemBuilder: (context, index) {
-                if (index == _order.length) {
-                  return _AddTile(colors: c, onTap: _showCreateSheet);
-                }
-                final id = _order[index];
-                final act = _getActivity(id);
-                final isActive = widget.activeId == id;
-                return _ActivityTile(
-                  act: act,
-                  isActive: isActive && !_editing,
-                  elapsed: isActive ? widget.elapsed : 0,
-                  todayMin: kTodayMin[id] ?? 0,
-                  editing: _editing,
-                  colors: c,
-                  onTap: () { if (!_editing) widget.onTap(id); },
-                  onRemove: () => setState(() => _order.remove(id)),
-                );
-              },
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (int index = 0; index < _order.length; index++)
+                  _buildTile(index, tileWidth, tileHeight, c),
+                SizedBox(
+                  width: tileWidth, height: tileHeight,
+                  child: _AddTile(colors: c, onTap: _showCreateSheet),
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTile(int index, double tileWidth, double tileHeight, AppColors c) {
+    final id = _order[index];
+    final act = _getActivity(id);
+    final isActive = widget.activeId == id;
+    final isHovered = _hoveredIndex == index && _draggingIndex != index;
+
+    final tile = SizedBox(
+      width: tileWidth, height: tileHeight,
+      child: _ActivityTile(
+        act: act,
+        isActive: isActive && !_editing,
+        elapsed: isActive ? widget.elapsed : 0,
+        todayMin: kTodayMin[id] ?? 0,
+        editing: _editing,
+        colors: c,
+        isDragTarget: isHovered,
+        onTap: () {
+          if (_editing) { _showEditSheet(id); }
+          else { widget.onTap(id, act); }
+        },
+        onRemove: () => setState(() {
+          _order.remove(id);
+          _customActivities.removeWhere((a) => a.id == id);
+        }),
+      ),
+    );
+
+    if (!_editing) return tile;
+
+    return LongPressDraggable<int>(
+      data: index,
+      delay: const Duration(milliseconds: 350),
+      onDragStarted: () => setState(() => _draggingIndex = index),
+      onDragEnd: (_) => setState(() { _draggingIndex = null; _hoveredIndex = null; }),
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(opacity: 0.9, child: tile),
+      ),
+      childWhenDragging: Opacity(opacity: 0.25, child: tile),
+      child: DragTarget<int>(
+        onWillAcceptWithDetails: (d) => d.data != index,
+        onMove: (details) {
+          if (_hoveredIndex != index) setState(() => _hoveredIndex = index);
+        },
+        onAcceptWithDetails: (d) {
+          _reorder(d.data, index);
+          setState(() { _draggingIndex = null; _hoveredIndex = null; });
+        },
+        onLeave: (_) {
+          if (_hoveredIndex == index) setState(() => _hoveredIndex = null);
+        },
+        builder: (ctx, candidates, rejected) => tile,
       ),
     );
   }
@@ -221,10 +284,12 @@ class _LiveTimerBar extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onStop;
   final AppColors colors;
+  final Activity Function(String) resolveActivity;
 
   const _LiveTimerBar({
     required this.activeId, required this.elapsed, required this.paused,
     this.startTime, required this.onPause, required this.onStop, required this.colors,
+    required this.resolveActivity,
   });
 
   @override
@@ -261,7 +326,7 @@ class _LiveTimerBar extends StatelessWidget {
       );
     }
 
-    final act = getActivity(activeId!);
+    final act = resolveActivity(activeId!);
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -342,6 +407,7 @@ class _ActivityTile extends StatelessWidget {
   final int elapsed;
   final int todayMin;
   final bool editing;
+  final bool isDragTarget;
   final AppColors colors;
   final VoidCallback onTap;
   final VoidCallback onRemove;
@@ -349,7 +415,7 @@ class _ActivityTile extends StatelessWidget {
   const _ActivityTile({
     required this.act, required this.isActive, required this.elapsed,
     required this.todayMin, required this.editing, required this.colors,
-    required this.onTap, required this.onRemove,
+    required this.onTap, required this.onRemove, this.isDragTarget = false,
   });
 
   @override
@@ -368,8 +434,9 @@ class _ActivityTile extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: bg,
+              color: isDragTarget ? act.color.withAlpha(20) : bg,
               borderRadius: BorderRadius.circular(22),
+              border: isDragTarget ? Border.all(color: act.color, width: 2) : null,
               boxShadow: isActive
                   ? [BoxShadow(color: act.color.withAlpha(85), blurRadius: 24, offset: const Offset(0, 8))]
                   : [const BoxShadow(color: Color(0x0A2A1E14), blurRadius: 20, offset: Offset(0, 6))],
@@ -463,28 +530,61 @@ const _kColorChoices = [
   Color(0xFFA0522D), Color(0xFF9A3F3F),
 ];
 
-class _CreateActivitySheet extends StatefulWidget {
+class _ActivityFormSheet extends StatefulWidget {
   final AppColors colors;
   final Set<String> existingLabels;
   final void Function(Activity) onSave;
+  final Activity? editing;
+  final void Function(String)? onDelete;
 
-  const _CreateActivitySheet({required this.colors, required this.existingLabels, required this.onSave});
+  const _ActivityFormSheet({
+    required this.colors,
+    required this.existingLabels,
+    required this.onSave,
+    this.editing,
+    this.onDelete,
+  });
 
   @override
-  State<_CreateActivitySheet> createState() => _CreateActivitySheetState();
+  State<_ActivityFormSheet> createState() => _ActivityFormSheetState();
 }
 
-class _CreateActivitySheetState extends State<_CreateActivitySheet> {
-  final _nameController = TextEditingController(text: '新規');
+class _ActivityFormSheetState extends State<_ActivityFormSheet> {
+  late final TextEditingController _nameController;
   final _hexController = TextEditingController();
-  String _icon = 'briefcase';
-  Color _color = _kColorChoices[0];
+  late String _icon;
+  late Color _color;
   String? _imagePath;
   String? _nameError;
   bool _customColorOpen = false;
   String? _hexError;
 
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.editing;
+    _nameController = TextEditingController(text: e?.label ?? '新規');
+    _icon = e?.icon ?? 'briefcase';
+    _color = e?.color ?? _kColorChoices[0];
+    _imagePath = e?.imagePath;
+  }
+
   Color _tintFrom(Color c) => c.withAlpha(51);
+
+  String _colorToHex(Color col) {
+    final r = (col.r * 255).round().toRadixString(16).padLeft(2, '0');
+    final g = (col.g * 255).round().toRadixString(16).padLeft(2, '0');
+    final b = (col.b * 255).round().toRadixString(16).padLeft(2, '0');
+    return '#$r$g$b'.toUpperCase();
+  }
+
+  void _applyColor(Color col) {
+    setState(() => _color = col);
+    _hexController.text = _colorToHex(col);
+    _hexController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _hexController.text.length),
+    );
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -503,7 +603,11 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
         return;
       } catch (_) {}
     }
-    if (hex.isNotEmpty) setState(() => _hexError = '有効な6桁HEXを入力');
+    if (hex.isNotEmpty) {
+      setState(() => _hexError = '有効な6桁HEXを入力');
+    } else {
+      setState(() => _hexError = null);
+    }
   }
 
   void _save() {
@@ -516,8 +620,9 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
       setState(() => _nameError = '「$name」はすでに存在します');
       return;
     }
+    final e = widget.editing;
     final act = Activity(
-      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      id: e?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
       label: name,
       color: _color,
       tint: _tintFrom(_color),
@@ -526,6 +631,13 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
     );
     widget.onSave(act);
     Navigator.of(context).pop();
+  }
+
+  void _delete() {
+    final id = widget.editing?.id;
+    if (id == null) return;
+    Navigator.of(context).pop();
+    widget.onDelete?.call(id);
   }
 
   @override
@@ -566,11 +678,11 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
                     child: Text('キャンセル', style: TextStyle(fontSize: 15, color: c.inkMuted)),
                   ),
                   const Spacer(),
-                  Text('新規アクティビティ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.ink)),
+                  Text(widget.editing != null ? 'アクティビティを編集' : '新規アクティビティ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.ink)),
                   const Spacer(),
                   GestureDetector(
                     onTap: _save,
-                    child: Text('追加', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.accent)),
+                    child: Text(widget.editing != null ? '保存' : '追加', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.accent)),
                   ),
                 ],
               ),
@@ -779,9 +891,9 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
                       runSpacing: 12,
                       children: [
                         ..._kColorChoices.map((col) {
-                          final selected = !_customColorOpen && _color == col && !_kColorChoices.every((c2) => c2 != _color) ? _color == col : _color == col;
+                          final selected = !_customColorOpen && _color == col;
                           return GestureDetector(
-                            onTap: () => setState(() { _color = col; _customColorOpen = false; }),
+                            onTap: () { _applyColor(col); setState(() => _customColorOpen = false); },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 120),
                               width: 36, height: 36,
@@ -795,21 +907,26 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
                           );
                         }),
                         // カラーホイールボタン
-                        GestureDetector(
-                          onTap: () => setState(() => _customColorOpen = !_customColorOpen),
-                          child: Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const SweepGradient(colors: [
-                                Color(0xFFFF0000), Color(0xFFFF8000), Color(0xFFFFFF00),
-                                Color(0xFF00FF00), Color(0xFF00FFFF), Color(0xFF0000FF),
-                                Color(0xFFFF00FF), Color(0xFFFF0000),
-                              ]),
-                              border: _customColorOpen ? Border.all(color: c.ink, width: 3) : Border.all(color: c.line),
+                        Builder(builder: (ctx) {
+                          final isCustom = !_kColorChoices.contains(_color);
+                          return GestureDetector(
+                            onTap: () => setState(() => _customColorOpen = !_customColorOpen),
+                            child: Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const SweepGradient(colors: [
+                                  Color(0xFFFF0000), Color(0xFFFF8000), Color(0xFFFFFF00),
+                                  Color(0xFF00FF00), Color(0xFF00FFFF), Color(0xFF0000FF),
+                                  Color(0xFFFF00FF), Color(0xFFFF0000),
+                                ]),
+                                border: (_customColorOpen || isCustom)
+                                    ? Border.all(color: c.ink, width: 3)
+                                    : Border.all(color: c.line),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       ],
                     ),
                     // カスタムカラーパネル
@@ -853,13 +970,33 @@ class _CreateActivitySheetState extends State<_CreateActivitySheet> {
                       // 明度スライダー
                       _HueSlider(
                         color: _color,
-                        onChanged: (col) => setState(() => _color = col),
+                        onChanged: _applyColor,
                       ),
                     ],
                   ],
                 ),
               ),
             ),
+            if (widget.editing != null && widget.onDelete != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: GestureDetector(
+                  onTap: _delete,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE11D48).withAlpha(12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE11D48).withAlpha(60)),
+                    ),
+                    child: const Center(
+                      child: Text('削除', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFFE11D48))),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
           ],
         ),

@@ -128,7 +128,13 @@ class _ReportScreenState extends State<ReportScreen> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  _StackBars(data: kWeekData, colors: c),
+                  if (_period == 'week')
+                    _StackBars(data: kWeekData, colors: c)
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('棒グラフは週表示のみ対応しています', style: TextStyle(fontSize: 12, color: c.inkMuted)),
+                    ),
                 ],
               ),
             ),
