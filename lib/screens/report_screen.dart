@@ -21,7 +21,6 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   String _period = 'week';
-  DateTime _referenceDate = DateTime.now();
   late Future<_ReportData> _dataFuture;
 
   @override
@@ -33,61 +32,21 @@ class _ReportScreenState extends State<ReportScreen> {
   Future<_ReportData> _loadData() async {
     switch (_period) {
       case 'day':
-        final totals = await LocalDb.getDayTotals(_dateStr(_referenceDate));
+        final totals = await LocalDb.getDayTotals(_dateStr(DateTime.now()));
         return _ReportData(totals: totals, weekData: const []);
       case 'week':
-        final weekData = await LocalDb.getWeekData(_referenceDate);
+        final weekData = await LocalDb.getWeekData();
         final totals = <String, int>{};
         for (final d in weekData) {
           d.minutes.forEach((k, v) { totals[k] = (totals[k] ?? 0) + v; });
         }
         return _ReportData(totals: totals, weekData: weekData);
       case 'month':
-        final totals = await LocalDb.getMonthTotals(_referenceDate);
+        final totals = await LocalDb.getMonthTotals();
         return _ReportData(totals: totals, weekData: const []);
       default: // 'year'
-        final totals = await LocalDb.getYearTotals(_referenceDate.year);
+        final totals = await LocalDb.getYearTotals();
         return _ReportData(totals: totals, weekData: const []);
-    }
-  }
-
-  bool get _isCurrentPeriod {
-    final now = DateTime.now();
-    switch (_period) {
-      case 'day':   return _sameDay(_referenceDate, now);
-      case 'week':
-        final ws    = now.subtract(Duration(days: now.weekday - 1));
-        final refWs = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
-        return _sameDay(ws, refWs);
-      case 'month': return _referenceDate.year == now.year && _referenceDate.month == now.month;
-      default:      return _referenceDate.year >= now.year;
-    }
-  }
-
-  static bool _sameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-
-  void _goBack() {
-    setState(() {
-      _referenceDate = _shift(-1);
-      _dataFuture = _loadData();
-    });
-  }
-
-  void _goNext() {
-    if (_isCurrentPeriod) return;
-    setState(() {
-      _referenceDate = _shift(1);
-      _dataFuture = _loadData();
-    });
-  }
-
-  DateTime _shift(int direction) {
-    switch (_period) {
-      case 'day':   return _referenceDate.add(Duration(days: direction));
-      case 'week':  return _referenceDate.add(Duration(days: 7 * direction));
-      case 'month': return DateTime(_referenceDate.year, _referenceDate.month + direction, 1);
-      default:      return DateTime(_referenceDate.year + direction, 1, 1);
     }
   }
 
@@ -104,48 +63,20 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   String get _subtitle {
-    if (_isCurrentPeriod) {
-      switch (_period) {
-        case 'day':   return '今日';
-        case 'week':  return '今週';
-        case 'month': return '今月';
-        default:      return '今年';
-      }
-    }
     switch (_period) {
-      case 'day':   return '${_referenceDate.month}月${_referenceDate.day}日';
-      case 'week':
-        final ws = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
-        return '${ws.month}/${ws.day.toString().padLeft(2,'0')}〜';
-      case 'month': return '${_referenceDate.year}年${_referenceDate.month}月';
-      default:      return '${_referenceDate.year}年';
+      case 'day':   return '今日';
+      case 'week':  return '今週';
+      case 'month': return '今月';
+      default:      return '今年';
     }
   }
 
-  String get _dateLabel {
-    final d = _referenceDate;
-    String fmt(DateTime x) =>
-        '${x.year}/${x.month.toString().padLeft(2, '0')}/${x.day.toString().padLeft(2, '0')}';
-    String mm(DateTime x) =>
-        '${x.month.toString().padLeft(2, '0')}/${x.day.toString().padLeft(2, '0')}';
-    switch (_period) {
-      case 'day': return fmt(d);
-      case 'week':
-        final start = d.subtract(Duration(days: d.weekday - 1));
-        final end = start.add(const Duration(days: 6));
-        return '${fmt(start)} 〜 ${mm(end)}';
-      case 'month': return '${d.year}/${d.month.toString().padLeft(2, '0')}';
-      default:      return '${d.year}';
-    }
-  }
-
-  // 週グラフで今日に対応する列インデックスを返す（この週でなければ -1）
   int _todayColumn() {
     final today = DateTime.now();
-    final weekStart = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
     for (int i = 0; i < 7; i++) {
       final day = weekStart.add(Duration(days: i));
-      if (_sameDay(day, today)) return i;
+      if (day.year == today.year && day.month == today.month && day.day == today.day) return i;
     }
     return -1;
   }
@@ -180,31 +111,6 @@ class _ReportScreenState extends State<ReportScreen> {
                     Text('REPORT', style: TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: c.inkMuted)),
                     const SizedBox(height: 2),
                     Text('$_subtitle のレポート', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: _goBack,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                            child: Icon(Icons.chevron_left, size: 22, color: c.ink),
-                          ),
-                        ),
-                        Text(_dateLabel, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink)),
-                        GestureDetector(
-                          onTap: _isCurrentPeriod ? null : _goNext,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                            child: Icon(
-                              Icons.chevron_right,
-                              size: 22,
-                              color: _isCurrentPeriod ? c.inkMuted.withAlpha(80) : c.ink,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -339,7 +245,7 @@ class _ReportScreenState extends State<ReportScreen> {
 class _StackBars extends StatelessWidget {
   final List<DayData> data;
   final AppColors colors;
-  final int todayIndex; // -1 = ハイライトなし
+  final int todayIndex;
 
   const _StackBars({required this.data, required this.colors, this.todayIndex = -1});
 

@@ -45,6 +45,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>GIDClientID</key>
+	<string>1049915736849-dfnpvatb8db562eqqkeun5n0r2hre4of.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1049915736849-dfnpvatb8db562eqqkeun5n0r2hre4of</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>アクティビティのアイコン画像を選択するために写真へのアクセスが必要です</string>
 	<key>NSCameraUsageDescription</key>
