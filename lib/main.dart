@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'models/activity.dart';
 import 'models/sample_data.dart';
@@ -9,8 +11,12 @@ import 'screens/tracker_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/act_icon.dart';
+import 'services/local_db.dart';
+import 'services/sync_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const TimeManagementApp());
 }
 
@@ -63,19 +69,63 @@ class _AppShellState extends State<AppShell> {
 
   String? _activeId;
   Activity? _activeActivity;
-  int _elapsed = 0;
+  int _elapsed = 0;            // 今日の累積秒 + 今セッションの経過秒
+  int _sessionStartElapsed = 0; // このセッション開始時点の _elapsed 値
   bool _paused = false;
   DateTime? _startTime;
   Timer? _timer;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayData();
+  }
+
+  Future<void> _loadTodayData() async {
+    final results = await Future.wait([
+      LocalDb.getTodayTotals(),
+      LocalDb.getWeekData(),
+    ]);
+    if (mounted) {
+      setState(() {
+        kTodayMin.clear();
+        kTodayMin.addAll(results[0] as Map<String, int>);
+        kWeekData.clear();
+        kWeekData.addAll(results[1] as List<DayData>);
+      });
+    }
+  }
+
+  void _saveCurrentSession() {
+    if (_activeId == null || _activeActivity == null) return;
+    final sessionSecs = _elapsed - _sessionStartElapsed;
+    if (sessionSecs < 1) return;
+    final now = DateTime.now();
+    kTodayMin[_activeId!] = _elapsed; // 累積値を即時反映
+    final record = SessionRecord(
+      activityId: _activeId!,
+      activityLabel: _activeActivity!.label,
+      durationSeconds: sessionSecs,
+      date: '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}',
+      startedAt: now.millisecondsSinceEpoch - (sessionSecs * 1000),
+    );
+    LocalDb.insert(record).then((_) async {
+      await SyncService.uploadUnsynced();
+      _loadTodayData();
+    });
+  }
+
   void _startOrSwitch(String id, Activity activity) {
     if (_activeId == id) return;
+    _saveCurrentSession();
     _timer?.cancel();
     final now = DateTime.now();
+    final accumulated = kTodayMin[id] ?? 0;
     setState(() {
       _activeId = id;
       _activeActivity = activity;
-      _elapsed = 0;
+      _elapsed = accumulated;
+      _sessionStartElapsed = accumulated;
       _paused = false;
       _startTime = now;
     });
@@ -87,17 +137,13 @@ class _AppShellState extends State<AppShell> {
   void _togglePause() => setState(() => _paused = !_paused);
 
   void _stop() {
-    if (_activeId != null) {
-      final mins = _elapsed ~/ 60;
-      if (mins > 0) {
-        kTodayMin[_activeId!] = (kTodayMin[_activeId!] ?? 0) + mins;
-      }
-    }
+    _saveCurrentSession();
     _timer?.cancel();
     setState(() {
       _activeId = null;
       _activeActivity = null;
       _elapsed = 0;
+      _sessionStartElapsed = 0;
       _paused = false;
       _startTime = null;
     });
