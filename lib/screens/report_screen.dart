@@ -110,6 +110,22 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
+  String get _presentLabel {
+    switch (_period) {
+      case 'day':   return '今日に戻る';
+      case 'week':  return '今週に戻る';
+      case 'month': return '今月に戻る';
+      default:      return '今年に戻る';
+    }
+  }
+
+  void _resetToPresent() {
+    setState(() {
+      _referenceDate = DateTime.now();
+      _dataFuture = _loadData();
+    });
+  }
+
   void _navigate(int dir) {
     final ref = _referenceDate;
     final DateTime next;
@@ -206,7 +222,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
               // Date navigation
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                padding: EdgeInsets.fromLTRB(20, 0, 20, _isAtPresent ? 12 : 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -232,6 +248,28 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                 ),
               ),
+
+              // Return-to-present chip
+              if (!_isAtPresent)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _resetToPresent,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: c.accent.withAlpha(24),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _presentLabel,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.accent),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
               // Total card + bar chart
               Padding(
