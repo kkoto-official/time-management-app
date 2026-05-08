@@ -8,7 +8,8 @@ import '../services/local_db.dart';
 class _ReportData {
   final Map<String, int> totals;
   final List<DayData> weekData;
-  const _ReportData({required this.totals, required this.weekData});
+  final List<SessionRecord> sessions;
+  const _ReportData({required this.totals, required this.weekData, this.sessions = const []});
 }
 
 class ReportScreen extends StatefulWidget {
@@ -42,8 +43,16 @@ class _ReportScreenState extends State<ReportScreen> {
   Future<_ReportData> _loadData() async {
     switch (_period) {
       case 'day':
-        final totals = await LocalDb.getDayTotals(_dateStr(_referenceDate));
-        return _ReportData(totals: totals, weekData: const []);
+        final dateStr = _dateStr(_referenceDate);
+        final results = await Future.wait([
+          LocalDb.getDayTotals(dateStr),
+          LocalDb.getByDate(dateStr),
+        ]);
+        return _ReportData(
+          totals: results[0] as Map<String, int>,
+          weekData: const [],
+          sessions: results[1] as List<SessionRecord>,
+        );
       case 'week':
         final weekData = await LocalDb.getWeekData(_referenceDate);
         final totals = <String, int>{};
@@ -300,6 +309,8 @@ class _ReportScreenState extends State<ReportScreen> {
                         const SizedBox(height: 18),
                         if (_period == 'week')
                           _StackBars(data: weekData, colors: c, todayIndex: _todayColumnIndex())
+                        else if (_period == 'day')
+                          _TimelineBar(sessions: snapshot.data?.sessions ?? [], colors: c)
                         else
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -438,5 +449,95 @@ class _StackBars extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _TimelineBar extends StatelessWidget {
+  final List<SessionRecord> sessions;
+  final AppColors colors;
+
+  const _TimelineBar({required this.sessions, required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    const barHeight = 36.0;
+    const labelHeight = 16.0;
+    const totalSeconds = 86400.0;
+    const hourLabels = [0, 6, 12, 18, 24];
+
+    if (sessions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text('記録なし', style: TextStyle(fontSize: 12, color: c.inkMuted)),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return SizedBox(
+          height: barHeight + labelHeight + 4,
+          child: Stack(
+            children: [
+              // Background track
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: barHeight,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: c.bgDeep,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+              // Session blocks
+              ...sessions.map((s) {
+                final startDt = DateTime.fromMillisecondsSinceEpoch(s.startedAt);
+                final startSec = startDt.hour * 3600.0 + startDt.minute * 60.0 + startDt.second;
+                final left = (startSec / totalSeconds) * width;
+                final rawWidth = (s.durationSeconds / totalSeconds) * width;
+                final blockWidth = rawWidth.clamp(4.0, width - left);
+                final actColor = _colorForId(s.activityId);
+                return Positioned(
+                  top: 0,
+                  left: left,
+                  width: blockWidth,
+                  height: barHeight,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: actColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                );
+              }),
+              // Hour labels
+              ...hourLabels.map((h) {
+                final x = (h / 24.0) * width;
+                return Positioned(
+                  top: barHeight + 4,
+                  left: h == 24 ? x - 16 : x,
+                  child: Text(
+                    '$h',
+                    style: TextStyle(fontSize: 9, color: c.inkMuted),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Color _colorForId(String activityId) {
+    try {
+      return kActivities.firstWhere((a) => a.id == activityId).color;
+    } catch (_) {
+      return const Color(0xFF9E9E9E);
+    }
   }
 }
