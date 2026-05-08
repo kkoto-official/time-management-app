@@ -469,7 +469,7 @@ class _ActivityTile extends StatelessWidget {
                 Text(act.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor, letterSpacing: -0.3)),
                 const SizedBox(height: 2),
                 Text(
-                  editing ? 'タップで編集' : (isActive ? fmtClock(elapsed) : (todayMin > 0 ? '今日 ${fmtHMShort(todayMin)}' : '—')),
+                  editing ? 'タップで編集' : (isActive ? fmtClock(elapsed) : (todayMin > 0 ? '今日 ${fmtHMShort(todayMin ~/ 60)}' : '—')),
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: subColor),
                 ),
               ],
