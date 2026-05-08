@@ -31,6 +31,8 @@ class ActIcon extends StatelessWidget {
     'book':      Icons.menu_book,
     'run':       Icons.directions_run,
     'eat':       Icons.restaurant,
+    'school':    Icons.school,
+    'coffee':    Icons.coffee,
   };
 
   @override

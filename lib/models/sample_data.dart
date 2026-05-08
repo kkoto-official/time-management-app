@@ -9,6 +9,8 @@ const kActivities = [
   Activity(id: 'sleep',    label: '睡眠',  color: Color(0xFF3D5A80), tint: Color(0xFFD3DDEA), icon: 'moon'),
   Activity(id: 'exercise', label: '運動',  color: Color(0xFF2E6E5A), tint: Color(0xFFC0DDD8), icon: 'run'),
   Activity(id: 'meal',     label: '食事',  color: Color(0xFF7A4E28), tint: Color(0xFFEDD9C8), icon: 'eat'),
+  Activity(id: 'study',    label: '勉強',  color: Color(0xFF5B4480), tint: Color(0xFFDDD4F0), icon: 'school'),
+  Activity(id: 'rest',     label: '休憩',  color: Color(0xFF4A6870), tint: Color(0xFFCDDADE), icon: 'coffee'),
   Activity(id: 'other',    label: 'その他', color: Color(0xFF6B5A4B), tint: Color(0xFFE2D8CD), icon: 'dots'),
 ];
 
