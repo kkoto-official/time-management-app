@@ -82,22 +82,20 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
+  static String _p(int n) => n.toString().padLeft(2, '0');
+
   String get _navLabel {
     switch (_period) {
       case 'day':
-        final dateStr = '${_referenceDate.year}年${_referenceDate.month}月${_referenceDate.day}日';
-        return _isAtPresent ? '$dateStr（今日）' : dateStr;
+        return '${_referenceDate.year}年${_p(_referenceDate.month)}月${_p(_referenceDate.day)}日';
       case 'week':
-        final weekStart = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
-        final weekEnd = weekStart.add(const Duration(days: 6));
-        final rangeStr = '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}';
-        return _isAtPresent ? '$rangeStr（今週）' : rangeStr;
+        final ws = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
+        final we = ws.add(const Duration(days: 6));
+        return '${_p(ws.month)}/${_p(ws.day)} - ${_p(we.month)}/${_p(we.day)}';
       case 'month':
-        final monthStr = '${_referenceDate.year}年${_referenceDate.month}月';
-        return _isAtPresent ? '$monthStr（今月）' : monthStr;
+        return '${_referenceDate.year}年${_p(_referenceDate.month)}月';
       default:
-        final yearStr = '${_referenceDate.year}年';
-        return _isAtPresent ? '$yearStr（今年）' : yearStr;
+        return '${_referenceDate.year}年';
     }
   }
 
@@ -233,7 +231,12 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     Text(
                       _navLabel,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: c.ink,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                     IconButton(
                       icon: Icon(Icons.chevron_right, color: _isAtPresent ? c.inkMuted.withAlpha(80) : c.ink),
@@ -242,22 +245,20 @@ class _ReportScreenState extends State<ReportScreen> {
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
                     const Spacer(),
-                    Opacity(
-                      opacity: _isAtPresent ? 0.0 : 1.0,
-                      child: IgnorePointer(
-                        ignoring: _isAtPresent,
-                        child: GestureDetector(
-                          onTap: _resetToPresent,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: c.accent.withAlpha(24),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _presentLabel,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.accent),
-                            ),
+                    GestureDetector(
+                      onTap: _isAtPresent ? null : _resetToPresent,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _isAtPresent ? c.bgDeep : c.accent.withAlpha(24),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _presentLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _isAtPresent ? c.inkMuted : c.accent,
                           ),
                         ),
                       ),
