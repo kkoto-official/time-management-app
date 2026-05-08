@@ -22,6 +22,7 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   String _period = 'week';
+  DateTime _referenceDate = DateTime.now();
   late Future<_ReportData> _dataFuture;
 
   @override
@@ -41,26 +42,64 @@ class _ReportScreenState extends State<ReportScreen> {
   Future<_ReportData> _loadData() async {
     switch (_period) {
       case 'day':
-        final totals = await LocalDb.getDayTotals(_dateStr(DateTime.now()));
+        final totals = await LocalDb.getDayTotals(_dateStr(_referenceDate));
         return _ReportData(totals: totals, weekData: const []);
       case 'week':
-        final weekData = await LocalDb.getWeekData();
+        final weekData = await LocalDb.getWeekData(_referenceDate);
         final totals = <String, int>{};
         for (final d in weekData) {
           d.minutes.forEach((k, v) { totals[k] = (totals[k] ?? 0) + v; });
         }
         return _ReportData(totals: totals, weekData: weekData);
       case 'month':
-        final totals = await LocalDb.getMonthTotals();
+        final totals = await LocalDb.getMonthTotals(_referenceDate);
         return _ReportData(totals: totals, weekData: const []);
       default: // 'year'
-        final totals = await LocalDb.getYearTotals();
+        final totals = await LocalDb.getYearTotals(_referenceDate.year);
         return _ReportData(totals: totals, weekData: const []);
     }
   }
 
   static String _dateStr(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool get _isAtPresent {
+    final now = DateTime.now();
+    switch (_period) {
+      case 'day':
+        return _isSameDay(_referenceDate, now);
+      case 'week':
+        final nowWeekStart = now.subtract(Duration(days: now.weekday - 1));
+        final refWeekStart = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
+        return _isSameDay(refWeekStart, nowWeekStart);
+      case 'month':
+        return _referenceDate.year == now.year && _referenceDate.month == now.month;
+      default:
+        return _referenceDate.year >= now.year;
+    }
+  }
+
+  String get _dateLabel {
+    switch (_period) {
+      case 'day':
+        if (_isAtPresent) return '今日';
+        return '${_referenceDate.year}年${_referenceDate.month}月${_referenceDate.day}日';
+      case 'week':
+        if (_isAtPresent) return '今週';
+        final weekStart = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        return '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}';
+      case 'month':
+        if (_isAtPresent) return '今月';
+        return '${_referenceDate.year}年${_referenceDate.month}月';
+      default:
+        if (_isAtPresent) return '今年';
+        return '${_referenceDate.year}年';
+    }
+  }
 
   String _avgLabel(int sumAll) {
     switch (_period) {
@@ -71,23 +110,28 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
-  String get _subtitle {
+  void _navigate(int dir) {
+    final ref = _referenceDate;
+    final DateTime next;
     switch (_period) {
-      case 'day':   return '今日';
-      case 'week':  return '今週';
-      case 'month': return '今月';
-      default:      return '今年';
+      case 'day':
+        next = ref.add(Duration(days: dir));
+      case 'week':
+        next = ref.add(Duration(days: dir * 7));
+      case 'month':
+        next = DateTime(ref.year, ref.month + dir, 1);
+      default:
+        next = DateTime(ref.year + dir, ref.month, ref.day);
     }
+    setState(() {
+      _referenceDate = next;
+      _dataFuture = _loadData();
+    });
   }
 
-  int _todayColumn() {
-    final today = DateTime.now();
-    final weekStart = today.subtract(Duration(days: today.weekday - 1));
-    for (int i = 0; i < 7; i++) {
-      final day = weekStart.add(Duration(days: i));
-      if (day.year == today.year && day.month == today.month && day.day == today.day) return i;
-    }
-    return -1;
+  int _todayColumnIndex() {
+    if (_period != 'week' || !_isAtPresent) return -1;
+    return DateTime.now().weekday - 1;
   }
 
   @override
@@ -112,21 +156,22 @@ class _ReportScreenState extends State<ReportScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Title
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('REPORT', style: TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: c.inkMuted)),
                     const SizedBox(height: 2),
-                    Text('$_subtitle のレポート', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
+                    Text('$_dateLabel のレポート', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
                   ],
                 ),
               ),
 
               // Period tabs
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(color: c.bgDeep, borderRadius: BorderRadius.circular(12)),
@@ -137,6 +182,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         child: GestureDetector(
                           onTap: () => setState(() {
                             _period = t.$1;
+                            _referenceDate = DateTime.now();
                             _dataFuture = _loadData();
                           }),
                           child: AnimatedContainer(
@@ -155,6 +201,35 @@ class _ReportScreenState extends State<ReportScreen> {
                       );
                     }).toList(),
                   ),
+                ),
+              ),
+
+              // Date navigation
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chevron_left, color: c.ink),
+                      onPressed: () => _navigate(-1),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _dateLabel,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.chevron_right, color: _isAtPresent ? c.inkMuted.withAlpha(80) : c.ink),
+                      onPressed: _isAtPresent ? null : () => _navigate(1),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                  ],
                 ),
               ),
 
@@ -190,7 +265,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         ),
                         const SizedBox(height: 18),
                         if (_period == 'week')
-                          _StackBars(data: weekData, colors: c, todayIndex: _todayColumn())
+                          _StackBars(data: weekData, colors: c, todayIndex: _todayColumnIndex())
                         else
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
