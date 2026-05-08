@@ -680,10 +680,7 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                   const Spacer(),
                   Text(widget.editing != null ? 'アクティビティを編集' : '新規アクティビティ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.ink)),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: _save,
-                    child: Text(widget.editing != null ? '保存' : '追加', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.accent)),
-                  ),
+                  const SizedBox(width: 60),
                 ],
               ),
             ),
@@ -836,7 +833,9 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                       ),
                     ),
                     // シンボルグリッド
-                    Wrap(
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       alignment: WrapAlignment.center,
@@ -856,6 +855,7 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                           ),
                         );
                       }).toList(),
+                    ),
                     ),
                   ],
                 ),
@@ -993,9 +993,30 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                 ),
               ),
             ),
+            // 保存ボタン
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: GestureDetector(
+                onTap: _save,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: _color,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      widget.editing != null ? '変更を保存' : 'アクティビティを追加',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             if (widget.editing != null && widget.onDelete != null) ...[
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                 child: GestureDetector(
                   onTap: _delete,
                   child: Container(
