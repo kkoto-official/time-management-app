@@ -56,6 +56,15 @@ class DayData {
   const DayData({required this.label, required this.minutes});
 }
 
+String fmtHMSShort(int sec) {
+  final h = sec ~/ 3600;
+  final m = (sec % 3600) ~/ 60;
+  final s = sec % 60;
+  if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
+  if (m > 0) return '${m}m ${s.toString().padLeft(2, '0')}s';
+  return '${s}s';
+}
+
 String fmtHMShort(int min) {
   final h = min ~/ 60;
   final m = min % 60;
