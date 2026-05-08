@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+
+const _keyAutoPause = 'auto_pause_minutes';
+const _keyIdleDetect = 'idle_detection';
+const _keyLockWidget = 'lock_screen_widget';
 
 class SettingsScreen extends StatefulWidget {
   final AppColors colors;
@@ -21,6 +26,76 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _signingIn = false;
+  int _autoPauseMinutes = 5;
+  bool _idleDetection = true;
+  bool _lockWidget = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final p = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _autoPauseMinutes = p.getInt(_keyAutoPause) ?? 5;
+        _idleDetection    = p.getBool(_keyIdleDetect) ?? true;
+        _lockWidget       = p.getBool(_keyLockWidget) ?? true;
+      });
+    }
+  }
+
+  Future<void> _saveAutoPause(int minutes) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_keyAutoPause, minutes);
+    if (mounted) setState(() => _autoPauseMinutes = minutes);
+  }
+
+  Future<void> _saveIdleDetection(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_keyIdleDetect, v);
+    if (mounted) setState(() => _idleDetection = v);
+  }
+
+  Future<void> _saveLockWidget(bool v) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_keyLockWidget, v);
+    if (mounted) setState(() => _lockWidget = v);
+  }
+
+  void _showAutoPauseDialog() {
+    final options = [0, 5, 10, 30, 60];
+    String label(int m) => m == 0 ? 'オフ' : '$m分後';
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.colors.card,
+        title: Text('自動一時停止', style: TextStyle(color: widget.colors.ink)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options.map((m) {
+            return RadioListTile<int>(
+              value: m,
+              groupValue: _autoPauseMinutes,
+              title: Text(label(m), style: TextStyle(color: widget.colors.ink)),
+              activeColor: widget.colors.accent,
+              onChanged: (v) {
+                if (v != null) {
+                  _saveAutoPause(v);
+                  Navigator.pop(ctx);
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  String get _autoPauseLabel =>
+      _autoPauseMinutes == 0 ? 'オフ' : '$_autoPauseMinutes分後';
 
   Future<void> _signIn() async {
     setState(() => _signingIn = true);
@@ -118,11 +193,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _ThemeChip(themeKey: 'amber', label: 'Amber', themeName: widget.themeName, onTap: widget.onThemeChange),
+                      _ThemeChip(themeKey: 'amber',      label: 'Amber', themeName: widget.themeName, onTap: widget.onThemeChange),
                       const SizedBox(width: 8),
                       _ThemeChip(themeKey: 'terracotta', label: 'Terra', themeName: widget.themeName, onTap: widget.onThemeChange),
                       const SizedBox(width: 8),
-                      _ThemeChip(themeKey: 'olive', label: 'Olive', themeName: widget.themeName, onTap: widget.onThemeChange),
+                      _ThemeChip(themeKey: 'olive',      label: 'Olive', themeName: widget.themeName, onTap: widget.onThemeChange),
                     ],
                   ),
                 ],
@@ -138,9 +213,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
-                  _SettingsRow(label: '自動一時停止', value: '5分後', colors: c),
-                  _SettingsRow(label: 'アイドル検知', value: 'オン', colors: c),
-                  _SettingsRow(label: 'ロック画面ウィジェット', value: '許可', colors: c, last: true),
+                  _SettingsRow(
+                    label: '自動一時停止',
+                    value: _autoPauseLabel,
+                    colors: c,
+                    onTap: _showAutoPauseDialog,
+                  ),
+                  _SettingsRow(
+                    label: 'アイドル検知',
+                    value: '',
+                    colors: c,
+                    trailing: Switch(
+                      value: _idleDetection,
+                      onChanged: _saveIdleDetection,
+                      activeColor: c.accent,
+                    ),
+                  ),
+                  _SettingsRow(
+                    label: 'ロック画面ウィジェット',
+                    value: '',
+                    colors: c,
+                    last: true,
+                    trailing: Switch(
+                      value: _lockWidget,
+                      onChanged: _saveLockWidget,
+                      activeColor: c.accent,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -155,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 children: [
                   _SettingsRow(label: 'エクスポート', value: 'CSV · JSON', colors: c),
-                  _SettingsRow(label: 'バックアップ', value: 'iCloud', colors: c, last: true),
+                  _SettingsRow(label: 'バックアップ',  value: 'iCloud',    colors: c, last: true),
                 ],
               ),
             ),
@@ -186,6 +285,7 @@ class _SettingsRow extends StatelessWidget {
   final AppColors colors;
   final bool last;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   const _SettingsRow({
     required this.label,
@@ -193,11 +293,13 @@ class _SettingsRow extends StatelessWidget {
     required this.colors,
     this.last = false,
     this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = colors;
+    final hasAction = onTap != null || trailing != null;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -209,7 +311,9 @@ class _SettingsRow extends StatelessWidget {
             Expanded(child: Text(label, style: TextStyle(fontSize: 15, color: c.ink, fontWeight: FontWeight.w500))),
             if (value.isNotEmpty)
               Text(value, style: TextStyle(fontSize: 14, color: c.inkMuted)),
-            if (onTap != null) ...[
+            if (trailing != null)
+              trailing!
+            else if (hasAction) ...[
               const SizedBox(width: 8),
               Icon(Icons.chevron_right, size: 16, color: c.inkSubtle),
             ],
