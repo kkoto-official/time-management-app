@@ -112,10 +112,10 @@ class _ReportScreenState extends State<ReportScreen> {
 
   String get _presentLabel {
     switch (_period) {
-      case 'day':   return '今日に戻る';
-      case 'week':  return '今週に戻る';
-      case 'month': return '今月に戻る';
-      default:      return '今年に戻る';
+      case 'day':   return '今日';
+      case 'week':  return '今週';
+      case 'month': return '今月';
+      default:      return '今年';
     }
   }
 
@@ -222,9 +222,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
               // Date navigation
               Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, _isAtPresent ? 12 : 4),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
                       icon: Icon(Icons.chevron_left, color: c.ink),
@@ -232,12 +231,9 @@ class _ReportScreenState extends State<ReportScreen> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
-                    Expanded(
-                      child: Text(
-                        _navLabel,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
-                      ),
+                    Text(
+                      _navLabel,
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
                     ),
                     IconButton(
                       icon: Icon(Icons.chevron_right, color: _isAtPresent ? c.inkMuted.withAlpha(80) : c.ink),
@@ -245,31 +241,30 @@ class _ReportScreenState extends State<ReportScreen> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
-                  ],
-                ),
-              ),
-
-              // Return-to-present chip
-              if (!_isAtPresent)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: _resetToPresent,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: c.accent.withAlpha(24),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _presentLabel,
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.accent),
+                    const Spacer(),
+                    Opacity(
+                      opacity: _isAtPresent ? 0.0 : 1.0,
+                      child: IgnorePointer(
+                        ignoring: _isAtPresent,
+                        child: GestureDetector(
+                          onTap: _resetToPresent,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: c.accent.withAlpha(24),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _presentLabel,
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c.accent),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
 
               // Total card + bar chart
               Padding(
