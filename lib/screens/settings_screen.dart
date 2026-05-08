@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   final AppColors colors;
   final String themeName;
   final void Function(String) onThemeChange;
@@ -14,8 +16,42 @@ class SettingsScreen extends StatelessWidget {
   });
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _signingIn = false;
+
+  Future<void> _signIn() async {
+    setState(() => _signingIn = true);
+    try {
+      await AuthService.signInWithGoogle();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ログインに失敗しました: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
+  Future<void> _signOut() async {
+    try {
+      await AuthService.signOut();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ログアウトに失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = colors;
+    final c = widget.colors;
     return SingleChildScrollView(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 16,
@@ -27,6 +63,46 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Text('設定', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
+          ),
+
+          _SectionLabel(label: 'アカウント', colors: c),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(16)),
+              child: StreamBuilder<User?>(
+                stream: AuthService.userStream,
+                builder: (context, snapshot) {
+                  final user = snapshot.data;
+                  if (user != null) {
+                    return Column(
+                      children: [
+                        _SettingsRow(
+                          label: user.displayName ?? 'ユーザー',
+                          value: user.email ?? '',
+                          colors: c,
+                        ),
+                        _SettingsRow(
+                          label: 'ログアウト',
+                          value: '',
+                          colors: c,
+                          last: true,
+                          onTap: _signOut,
+                        ),
+                      ],
+                    );
+                  }
+                  return _SettingsRow(
+                    label: 'Googleでログイン',
+                    value: _signingIn ? 'ログイン中...' : '',
+                    colors: c,
+                    last: true,
+                    onTap: _signingIn ? null : _signIn,
+                  );
+                },
+              ),
+            ),
           ),
 
           _SectionLabel(label: '外観', colors: c),
@@ -42,15 +118,13 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      _ThemeChip(themeKey: 'amber', label: 'Amber', themeName: themeName, onTap: onThemeChange),
+                      _ThemeChip(themeKey: 'amber', label: 'Amber', themeName: widget.themeName, onTap: widget.onThemeChange),
                       const SizedBox(width: 8),
-                      _ThemeChip(themeKey: 'terracotta', label: 'Terra', themeName: themeName, onTap: onThemeChange),
+                      _ThemeChip(themeKey: 'terracotta', label: 'Terra', themeName: widget.themeName, onTap: widget.onThemeChange),
                       const SizedBox(width: 8),
-                      _ThemeChip(themeKey: 'olive', label: 'Olive', themeName: themeName, onTap: onThemeChange),
+                      _ThemeChip(themeKey: 'olive', label: 'Olive', themeName: widget.themeName, onTap: widget.onThemeChange),
                     ],
                   ),
-                  Divider(color: c.line, height: 24),
-                  _SettingsRow(label: 'ダークモード', value: 'システム', colors: c, last: true),
                 ],
               ),
             ),
@@ -111,22 +185,36 @@ class _SettingsRow extends StatelessWidget {
   final String value;
   final AppColors colors;
   final bool last;
+  final VoidCallback? onTap;
 
-  const _SettingsRow({required this.label, required this.value, required this.colors, this.last = false});
+  const _SettingsRow({
+    required this.label,
+    required this.value,
+    required this.colors,
+    this.last = false,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(border: last ? null : Border(bottom: BorderSide(color: c.line))),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: TextStyle(fontSize: 15, color: c.ink, fontWeight: FontWeight.w500))),
-          Text(value, style: TextStyle(fontSize: 14, color: c.inkMuted)),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right, size: 16, color: c.inkSubtle),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(border: last ? null : Border(bottom: BorderSide(color: c.line))),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: TextStyle(fontSize: 15, color: c.ink, fontWeight: FontWeight.w500))),
+            if (value.isNotEmpty)
+              Text(value, style: TextStyle(fontSize: 14, color: c.inkMuted)),
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, size: 16, color: c.inkSubtle),
+            ],
+          ],
+        ),
       ),
     );
   }
