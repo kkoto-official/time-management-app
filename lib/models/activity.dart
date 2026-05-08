@@ -17,6 +17,24 @@ class Activity {
     this.imagePath,
   });
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'color': color.value,
+    'tint': tint.value,
+    'icon': icon,
+    if (imagePath != null) 'imagePath': imagePath,
+  };
+
+  factory Activity.fromJson(Map<String, dynamic> json) => Activity(
+    id: json['id'] as String,
+    label: json['label'] as String,
+    color: Color(json['color'] as int),
+    tint: Color(json['tint'] as int),
+    icon: json['icon'] as String,
+    imagePath: json['imagePath'] as String?,
+  );
+
   Activity copyWith({String? label, Color? color, Color? tint, String? icon, String? imagePath}) {
     return Activity(
       id: id,

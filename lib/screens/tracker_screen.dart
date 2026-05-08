@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/activity.dart';
 import '../models/sample_data.dart';
@@ -35,11 +37,51 @@ class TrackerScreen extends StatefulWidget {
 class _TrackerScreenState extends State<TrackerScreen> {
   int _cols = 2;
   bool _editing = false;
-  final List<String> _order = kActivities.map((a) => a.id).toList();
+  List<String> _order = kActivities.map((a) => a.id).toList();
   final List<Activity> _customActivities = [];
   final Map<String, Activity> _overrides = {};
   int? _draggingIndex;
   int? _hoveredIndex;
+
+  static const _kPrefOrder = 'activity_order';
+  static const _kPrefCustom = 'activity_custom';
+  static const _kPrefOverrides = 'activity_overrides';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
+  }
+
+  Future<void> _loadState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final orderList = prefs.getStringList(_kPrefOrder);
+    final customList = prefs.getStringList(_kPrefCustom);
+    final overridesStr = prefs.getString(_kPrefOverrides);
+    setState(() {
+      if (orderList != null) _order = orderList;
+      if (customList != null) {
+        _customActivities.clear();
+        _customActivities.addAll(
+          customList.map((s) => Activity.fromJson(jsonDecode(s) as Map<String, dynamic>)),
+        );
+      }
+      if (overridesStr != null) {
+        final map = jsonDecode(overridesStr) as Map<String, dynamic>;
+        _overrides.clear();
+        map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
+      }
+    });
+  }
+
+  Future<void> _saveState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPrefOrder, _order);
+    await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());
+    await prefs.setString(_kPrefOverrides, jsonEncode({
+      for (final e in _overrides.entries) e.key: e.value.toJson()
+    }));
+  }
 
   Activity _getActivity(String id) {
     if (_overrides.containsKey(id)) return _overrides[id]!;
@@ -60,7 +102,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       builder: (_) => _ActivityFormSheet(
         colors: widget.colors,
         existingLabels: _existingLabelsExcluding(null),
-        onSave: (act) => setState(() { _customActivities.add(act); _order.add(act.id); }),
+        onSave: (act) { setState(() { _customActivities.add(act); _order.add(act.id); }); _saveState(); },
       ),
     );
   }
@@ -75,20 +117,26 @@ class _TrackerScreenState extends State<TrackerScreen> {
         colors: widget.colors,
         existingLabels: _existingLabelsExcluding(act.label),
         editing: act,
-        onSave: (updated) => setState(() {
-          final isCustom = _customActivities.any((a) => a.id == id);
-          if (isCustom) {
-            final i = _customActivities.indexWhere((a) => a.id == id);
-            _customActivities[i] = updated;
-          } else {
-            _overrides[id] = updated;
-          }
-        }),
-        onDelete: (delId) => setState(() {
-          _order.remove(delId);
-          _customActivities.removeWhere((a) => a.id == delId);
-          _overrides.remove(delId);
-        }),
+        onSave: (updated) {
+          setState(() {
+            final isCustom = _customActivities.any((a) => a.id == id);
+            if (isCustom) {
+              final i = _customActivities.indexWhere((a) => a.id == id);
+              _customActivities[i] = updated;
+            } else {
+              _overrides[id] = updated;
+            }
+          });
+          _saveState();
+        },
+        onDelete: (delId) {
+          setState(() {
+            _order.remove(delId);
+            _customActivities.removeWhere((a) => a.id == delId);
+            _overrides.remove(delId);
+          });
+          _saveState();
+        },
       ),
     );
   }
@@ -99,6 +147,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
       final item = _order.removeAt(fromIndex);
       _order.insert(toIndex, item);
     });
+    _saveState();
   }
 
   @override
@@ -239,10 +288,13 @@ class _TrackerScreenState extends State<TrackerScreen> {
           if (_editing) { _showEditSheet(id); }
           else { widget.onTap(id, act); }
         },
-        onRemove: () => setState(() {
-          _order.remove(id);
-          _customActivities.removeWhere((a) => a.id == id);
-        }),
+        onRemove: () {
+          setState(() {
+            _order.remove(id);
+            _customActivities.removeWhere((a) => a.id == id);
+          });
+          _saveState();
+        },
       ),
     );
 
