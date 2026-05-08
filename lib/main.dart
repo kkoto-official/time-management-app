@@ -70,6 +70,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
+  int _reportRefreshTrigger = 0;
 
   String? _activeId;
   Activity? _activeActivity;
@@ -194,7 +195,7 @@ class _AppShellState extends State<AppShell> {
         onPause: _togglePause,
         onStop: _stop,
       ),
-      ReportScreen(colors: c),
+      ReportScreen(colors: c, refreshTrigger: _reportRefreshTrigger),
       SettingsScreen(
         colors: c,
         themeName: widget.themeName,
@@ -212,7 +213,10 @@ class _AppShellState extends State<AppShell> {
             child: _BottomTabBar(
               current: _tab,
               colors: c,
-              onTap: (i) => setState(() => _tab = i),
+              onTap: (i) => setState(() {
+                if (i == 2) _reportRefreshTrigger++;
+                _tab = i;
+              }),
             ),
           ),
         ],

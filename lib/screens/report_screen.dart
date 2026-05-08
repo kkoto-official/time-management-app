@@ -13,7 +13,8 @@ class _ReportData {
 
 class ReportScreen extends StatefulWidget {
   final AppColors colors;
-  const ReportScreen({super.key, required this.colors});
+  final int refreshTrigger;
+  const ReportScreen({super.key, required this.colors, this.refreshTrigger = 0});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -27,6 +28,14 @@ class _ReportScreenState extends State<ReportScreen> {
   void initState() {
     super.initState();
     _dataFuture = _loadData();
+  }
+
+  @override
+  void didUpdateWidget(ReportScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTrigger != widget.refreshTrigger) {
+      setState(() => _dataFuture = _loadData());
+    }
   }
 
   Future<_ReportData> _loadData() async {
@@ -55,9 +64,9 @@ class _ReportScreenState extends State<ReportScreen> {
 
   String _avgLabel(int sumAll) {
     switch (_period) {
-      case 'week':  return '/ 日平均 ${fmtHMShort(sumAll ~/ 7)}';
-      case 'month': return '/ 日平均 ${fmtHMShort(sumAll ~/ 30)}';
-      case 'year':  return '/ 月平均 ${fmtHMShort(sumAll ~/ 12)}';
+      case 'week':  return '/ 日平均 ${fmtHMShort(sumAll ~/ (7 * 60))}';
+      case 'month': return '/ 日平均 ${fmtHMShort(sumAll ~/ (30 * 60))}';
+      case 'year':  return '/ 月平均 ${fmtHMShort(sumAll ~/ (12 * 60))}';
       default: return '';
     }
   }
@@ -174,7 +183,7 @@ class _ReportScreenState extends State<ReportScreen> {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(fmtHMShort(sumAll), style: TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -1)),
+                            Text(fmtHMShort(sumAll ~/ 60), style: TextStyle(fontSize: 38, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -1)),
                             const SizedBox(width: 10),
                             Text(_avgLabel(sumAll), style: TextStyle(fontSize: 13, color: c.inkMuted)),
                           ],
@@ -226,7 +235,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(child: Text(act.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink))),
                                   SizedBox(width: 36, child: Text('$pct%', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: c.inkMuted))),
-                                  SizedBox(width: 72, child: Text(fmtHMShort(v), textAlign: TextAlign.right, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.ink))),
+                                  SizedBox(width: 72, child: Text(fmtHMShort(v ~/ 60), textAlign: TextAlign.right, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.ink))),
                                 ],
                               ),
                             );

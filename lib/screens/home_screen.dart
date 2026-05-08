@@ -157,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     size: 160,
                     thickness: 22,
                     centerLabel: centerLabel,
-                    centerValue: fmtHMShort(total),
+                    centerValue: fmtHMShort(total ~/ 60),
                   ),
                   const SizedBox(width: 18),
                   Expanded(
@@ -318,7 +318,7 @@ class _CategoryRow extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(child: Text(act.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink))),
-                      Text(fmtHMShort(minutes), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink)),
+                      Text(fmtHMShort(minutes ~/ 60), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: c.ink)),
                     ],
                   ),
                   const SizedBox(height: 6),
