@@ -82,22 +82,22 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
-  String get _dateLabel {
+  String get _navLabel {
     switch (_period) {
       case 'day':
-        if (_isAtPresent) return '今日';
-        return '${_referenceDate.year}年${_referenceDate.month}月${_referenceDate.day}日';
+        final dateStr = '${_referenceDate.year}年${_referenceDate.month}月${_referenceDate.day}日';
+        return _isAtPresent ? '$dateStr（今日）' : dateStr;
       case 'week':
-        if (_isAtPresent) return '今週';
         final weekStart = _referenceDate.subtract(Duration(days: _referenceDate.weekday - 1));
         final weekEnd = weekStart.add(const Duration(days: 6));
-        return '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}';
+        final rangeStr = '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}';
+        return _isAtPresent ? '$rangeStr（今週）' : rangeStr;
       case 'month':
-        if (_isAtPresent) return '今月';
-        return '${_referenceDate.year}年${_referenceDate.month}月';
+        final monthStr = '${_referenceDate.year}年${_referenceDate.month}月';
+        return _isAtPresent ? '$monthStr（今月）' : monthStr;
       default:
-        if (_isAtPresent) return '今年';
-        return '${_referenceDate.year}年';
+        final yearStr = '${_referenceDate.year}年';
+        return _isAtPresent ? '$yearStr（今年）' : yearStr;
     }
   }
 
@@ -164,7 +164,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   children: [
                     Text('REPORT', style: TextStyle(fontSize: 11, letterSpacing: 1.2, fontWeight: FontWeight.w600, color: c.inkMuted)),
                     const SizedBox(height: 2),
-                    Text('$_dateLabel のレポート', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
+                    Text('レポート', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: c.ink, letterSpacing: -0.8)),
                   ],
                 ),
               ),
@@ -218,7 +218,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        _dateLabel,
+                        _navLabel,
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
                       ),
