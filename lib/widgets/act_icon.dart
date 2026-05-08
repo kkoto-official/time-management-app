@@ -29,6 +29,8 @@ class ActIcon extends StatelessWidget {
     'edit':      Icons.edit_outlined,
     'trash':     Icons.delete_outline,
     'book':      Icons.menu_book,
+    'run':       Icons.directions_run,
+    'eat':       Icons.restaurant,
   };
 
   @override
