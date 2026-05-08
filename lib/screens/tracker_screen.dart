@@ -523,7 +523,7 @@ class _AddTile extends StatelessWidget {
 
 // ── Create Activity Sheet ────────────────────────────────────
 
-const _kIconChoices = ['briefcase', 'laptop', 'gamepad', 'train', 'moon', 'book', 'run', 'eat', 'school', 'coffee', 'chart', 'timer', 'dots'];
+const _kIconChoices = ['briefcase', 'laptop', 'gamepad', 'train', 'moon', 'book', 'run', 'eat', 'school', 'coffee', 'video', 'music', 'camera', 'clean', 'dots'];
 const _kColorChoices = [
   Color(0xFFB3541B), Color(0xFFC2410C), Color(0xFF8A6A2E), Color(0xFF7A6A1F),
   Color(0xFFA04668), Color(0xFF4A6B52), Color(0xFF3D5A80), Color(0xFF6B5A4B),

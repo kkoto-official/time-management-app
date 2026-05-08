@@ -33,6 +33,10 @@ class ActIcon extends StatelessWidget {
     'eat':       Icons.restaurant,
     'school':    Icons.school,
     'coffee':    Icons.coffee,
+    'video':     Icons.movie,
+    'music':     Icons.music_note,
+    'camera':    Icons.camera_alt,
+    'clean':     Icons.cleaning_services,
   };
 
   @override
