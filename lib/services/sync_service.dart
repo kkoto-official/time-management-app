@@ -43,6 +43,59 @@ class SyncService {
     }
   }
 
+  // Firebase → ローカル SQLite に未保存レコードを取り込む
+  // 戻り値: 新規挿入件数
+  static Future<int> downloadAndMerge() async {
+    try {
+      final uid = AuthService.currentUser?.uid;
+      if (uid == null) {
+        debugPrint('[SyncService] downloadAndMerge: not logged in, skip');
+        return 0;
+      }
+
+      final snap = await _fs
+          .collection('users')
+          .doc(uid)
+          .collection('sessions')
+          .get();
+
+      if (snap.docs.isEmpty) return 0;
+      debugPrint('[SyncService] firebase records: ${snap.docs.length}');
+
+      final localRecords = await LocalDb.getAll();
+      // activityId + startedAt で重複チェック
+      final localKeys = localRecords
+          .map((r) => '${r.activityId}_${r.startedAt}')
+          .toSet();
+
+      int inserted = 0;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final ts = data['startedAt'];
+        final startedAt = ts is int ? ts : (ts as dynamic).millisecondsSinceEpoch as int;
+        final activityId = data['activityId'] as String;
+
+        if (!localKeys.contains('${activityId}_$startedAt')) {
+          await LocalDb.insert(SessionRecord(
+            activityId: activityId,
+            activityLabel: data['activityLabel'] as String,
+            durationSeconds: data['durationSeconds'] as int,
+            date: data['date'] as String,
+            startedAt: startedAt,
+            synced: true,
+          ));
+          inserted++;
+        }
+      }
+
+      debugPrint('[SyncService] downloadAndMerge: inserted $inserted new records');
+      return inserted;
+    } catch (e, st) {
+      debugPrint('[SyncService] downloadAndMerge failed: $e\n$st');
+      return 0;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> fetchAll() async {
     final uid = AuthService.currentUser?.uid;
     if (uid == null) return [];

@@ -84,12 +84,19 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _loadTodayData();
+    _syncFromCloud();
+  }
+
+  Future<void> _syncFromCloud() async {
+    final count = await SyncService.downloadAndMerge();
+    if (count > 0) _loadTodayData();
   }
 
   Future<void> _loadTodayData() async {
     final results = await Future.wait([
       LocalDb.getTodayTotals(),
       LocalDb.getWeekData(),
+      LocalDb.getMonthTotals(),
     ]);
     if (mounted) {
       setState(() {
@@ -97,6 +104,8 @@ class _AppShellState extends State<AppShell> {
         kTodayMin.addAll(results[0] as Map<String, int>);
         kWeekData.clear();
         kWeekData.addAll(results[1] as List<DayData>);
+        kMonthData.clear();
+        kMonthData.addAll(results[2] as Map<String, int>);
       });
     }
   }

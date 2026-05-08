@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/activity.dart';
 import '../models/sample_data.dart';
+import '../services/local_db.dart';
 import '../widgets/donut_chart.dart';
 import '../widgets/act_icon.dart';
 
@@ -44,14 +45,46 @@ String _todayLabel() {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _period = 'day';
+  Map<String, int> _monthData = {};
+  Map<String, int> _weekData = {};
+  bool _asyncLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAsync('week');
+  }
+
+  Future<void> _loadAsync(String period) async {
+    if (_asyncLoading) return;
+    _asyncLoading = true;
+    try {
+      if (period == 'week') {
+        final weekList = await LocalDb.getWeekData();
+        final agg = <String, int>{};
+        for (final day in weekList) {
+          day.minutes.forEach((k, v) { agg[k] = (agg[k] ?? 0) + v; });
+        }
+        if (mounted) setState(() => _weekData = agg);
+      } else if (period == 'month') {
+        final data = await LocalDb.getMonthTotals();
+        if (mounted) setState(() => _monthData = data);
+      }
+    } finally {
+      _asyncLoading = false;
+    }
+  }
+
+  void _switchPeriod(String period) {
+    setState(() => _period = period);
+    if (period == 'week') _loadAsync('week');
+    if (period == 'month') _loadAsync('month');
+  }
 
   Map<String, int> get _data {
     if (_period == 'day') return kTodayMin;
-    final agg = <String, int>{};
-    for (final day in kWeekData) {
-      day.minutes.forEach((k, v) { agg[k] = (agg[k] ?? 0) + v; });
-    }
-    return agg;
+    if (_period == 'month') return _monthData;
+    return _weekData;
   }
 
   @override
@@ -134,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Period tabs
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-            child: _PeriodTabs(value: _period, onChange: (v) => setState(() => _period = v), colors: c),
+            child: _PeriodTabs(value: _period, onChange: _switchPeriod, colors: c),
           ),
 
           // Donut card

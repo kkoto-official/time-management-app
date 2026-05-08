@@ -13,6 +13,7 @@ const kActivities = [
 // 起動時に LocalDb から読み込んで上書きされる（秒単位）
 final kTodayMin = <String, int>{};
 final kWeekData = <DayData>[];
+final kMonthData = <String, int>{};
 final kTimeline = <TimelineSegment>[];
 
 Activity getActivity(String id) {

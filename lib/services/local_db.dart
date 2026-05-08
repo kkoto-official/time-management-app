@@ -98,6 +98,12 @@ class LocalDb {
     return d.insert('sessions', r.toMap());
   }
 
+  static Future<List<SessionRecord>> getAll() async {
+    final d = await db;
+    final rows = await d.query('sessions');
+    return rows.map(SessionRecord.fromMap).toList();
+  }
+
   static Future<List<SessionRecord>> getByDate(String date) async {
     final d = await db;
     final rows = await d.query('sessions', where: 'date = ?', whereArgs: [date]);
