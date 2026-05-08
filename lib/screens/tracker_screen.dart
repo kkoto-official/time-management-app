@@ -35,7 +35,7 @@ class TrackerScreen extends StatefulWidget {
 class _TrackerScreenState extends State<TrackerScreen> {
   int _cols = 2;
   bool _editing = false;
-  final List<String> _order = ['workA', 'workB', 'game', 'move', 'sleep', 'other'];
+  final List<String> _order = kActivities.map((a) => a.id).toList();
   final List<Activity> _customActivities = [];
   final Map<String, Activity> _overrides = {};
   int? _draggingIndex;
@@ -839,6 +839,7 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
+                      alignment: WrapAlignment.center,
                       children: _kIconChoices.map((ico) {
                         final selected = _imagePath == null && _icon == ico;
                         return GestureDetector(
@@ -971,6 +972,21 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
                       _HueSlider(
                         color: _color,
                         onChanged: _applyColor,
+                      ),
+                      const SizedBox(height: 14),
+                      GestureDetector(
+                        onTap: () => setState(() => _customColorOpen = false),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _color,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Center(
+                            child: Text('このカラーを適用', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                          ),
+                        ),
                       ),
                     ],
                   ],
