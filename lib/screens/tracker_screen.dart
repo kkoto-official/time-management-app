@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/activity.dart';
 import '../models/sample_data.dart';
+import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import '../widgets/act_icon.dart';
 
@@ -45,85 +47,137 @@ class _TrackerScreenState extends State<TrackerScreen> {
   int? _draggingIndex;
   int? _hoveredIndex;
 
-  static const _kPrefOrder = 'activity_order';
-  static const _kPrefCustom = 'activity_custom';
+  StreamSubscription<dynamic>? _authSub;
+  String? _lastUid;
+
+  static const _kPrefUid      = 'activity_uid';
+  static const _kPrefOrder    = 'activity_order';
+  static const _kPrefCustom   = 'activity_custom';
   static const _kPrefOverrides = 'activity_overrides';
-  static const _kPrefArchived = 'activity_archived';
+  static const _kPrefArchived  = 'activity_archived';
 
   @override
   void initState() {
     super.initState();
+    _lastUid = AuthService.currentUser?.uid;
     _loadState();
+    // アカウント切り替えを検知して再ロード
+    _authSub = AuthService.userStream.listen((user) {
+      if (user?.uid != _lastUid) {
+        _lastUid = user?.uid;
+        _loadState();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadState() async {
-    // Step1: SharedPreferences から即時ロード（オフライン対応・高速）
     final prefs = await SharedPreferences.getInstance();
+    final currentUid = AuthService.currentUser?.uid;
+    final savedUid = prefs.getString(_kPrefUid);
+    final sameUser = currentUid != null && currentUid == savedUid;
+
+    if (sameUser) {
+      // 同じユーザー：SharedPreferences から即時ロード（高速・オフライン対応）
+      if (mounted) {
+        setState(() {
+          _applyLocalPrefs(prefs);
+          _syncGlobals();
+        });
+      }
+    }
+    // 別ユーザーまたは初回：SharedPreferences は汚染されている可能性があるためスキップ
+
+    // Firestore から取得して上書き
+    final remote = await SyncService.fetchActivities();
+    if (!mounted) return;
+
+    if (remote != null) {
+      // Firestore にデータあり → 上書き適用
+      setState(() {
+        _applyRemoteData(remote);
+        _syncGlobals();
+      });
+      await prefs.setString(_kPrefUid, currentUid ?? '');
+      await _saveLocalPrefs();
+    } else if (!sameUser) {
+      // 別アカウント or 初回ログイン で Firestore にデータなし → デフォルトにリセット
+      setState(() {
+        _resetToDefaults();
+        _syncGlobals();
+      });
+      await prefs.setString(_kPrefUid, currentUid ?? '');
+      await _saveLocalPrefs();
+    }
+  }
+
+  void _applyLocalPrefs(SharedPreferences prefs) {
     final orderList = prefs.getStringList(_kPrefOrder);
     final customList = prefs.getStringList(_kPrefCustom);
     final overridesStr = prefs.getString(_kPrefOverrides);
     final archivedStr = prefs.getString(_kPrefArchived);
-    if (mounted) {
-      setState(() {
-        if (orderList != null) _order = orderList;
-        if (customList != null) {
-          _customActivities.clear();
-          _customActivities.addAll(
-            customList.map((s) => Activity.fromJson(jsonDecode(s) as Map<String, dynamic>)),
-          );
-        }
-        if (overridesStr != null) {
-          final map = jsonDecode(overridesStr) as Map<String, dynamic>;
-          _overrides.clear();
-          map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
-        }
-        if (archivedStr != null) {
-          final map = jsonDecode(archivedStr) as Map<String, dynamic>;
-          _archived.clear();
-          map.forEach((k, v) => _archived[k] = Activity.fromJson(v as Map<String, dynamic>));
-        }
-        _syncGlobals();
-      });
+    if (orderList != null) _order = orderList;
+    if (customList != null) {
+      _customActivities.clear();
+      _customActivities.addAll(
+        customList.map((s) => Activity.fromJson(jsonDecode(s) as Map<String, dynamic>)),
+      );
+    }
+    if (overridesStr != null) {
+      final map = jsonDecode(overridesStr) as Map<String, dynamic>;
+      _overrides.clear();
+      map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
+    }
+    if (archivedStr != null) {
+      final map = jsonDecode(archivedStr) as Map<String, dynamic>;
+      _archived.clear();
+      map.forEach((k, v) => _archived[k] = Activity.fromJson(v as Map<String, dynamic>));
+    }
+  }
+
+  void _applyRemoteData(Map<String, dynamic> remote) {
+    final remoteOrder = remote['order'];
+    if (remoteOrder != null) _order = List<String>.from(remoteOrder as List);
+
+    final remoteCustom = remote['custom'];
+    if (remoteCustom != null) {
+      _customActivities
+        ..clear()
+        ..addAll((remoteCustom as List).map(
+          (m) => Activity.fromJson(Map<String, dynamic>.from(m as Map)),
+        ));
     }
 
-    // Step2: Firestore から取得して上書き（ログイン済みの場合のみ）
-    final remote = await SyncService.fetchActivities();
-    if (remote == null || !mounted) return;
-    setState(() {
-      final remoteOrder = remote['order'];
-      if (remoteOrder != null) _order = List<String>.from(remoteOrder as List);
+    final remoteOverrides = remote['overrides'];
+    if (remoteOverrides != null) {
+      _overrides.clear();
+      (remoteOverrides as Map).forEach((k, v) =>
+        _overrides[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
+    }
 
-      final remoteCustom = remote['custom'];
-      if (remoteCustom != null) {
-        _customActivities
-          ..clear()
-          ..addAll((remoteCustom as List).map(
-            (m) => Activity.fromJson(Map<String, dynamic>.from(m as Map)),
-          ));
-      }
+    final remoteArchived = remote['archived'];
+    if (remoteArchived != null) {
+      _archived.clear();
+      (remoteArchived as Map).forEach((k, v) =>
+        _archived[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
+    }
+  }
 
-      final remoteOverrides = remote['overrides'];
-      if (remoteOverrides != null) {
-        _overrides.clear();
-        (remoteOverrides as Map).forEach((k, v) =>
-          _overrides[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
-      }
-
-      final remoteArchived = remote['archived'];
-      if (remoteArchived != null) {
-        _archived.clear();
-        (remoteArchived as Map).forEach((k, v) =>
-          _archived[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
-      }
-
-      _syncGlobals();
-    });
-    // Firestore の内容でローカルキャッシュも更新
-    await _saveLocalPrefs();
+  void _resetToDefaults() {
+    _order = kActivities.map((a) => a.id).toList();
+    _customActivities.clear();
+    _overrides.clear();
+    _archived.clear();
   }
 
   Future<void> _saveLocalPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPrefUid, AuthService.currentUser?.uid ?? '');
     await prefs.setStringList(_kPrefOrder, _order);
     await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());
     await prefs.setString(_kPrefOverrides, jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}));
