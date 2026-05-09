@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -47,33 +46,16 @@ class _TrackerScreenState extends State<TrackerScreen> {
   int? _draggingIndex;
   int? _hoveredIndex;
 
-  StreamSubscription<dynamic>? _authSub;
-  String? _lastUid;
-
-  static const _kPrefUid      = 'activity_uid';
-  static const _kPrefOrder    = 'activity_order';
-  static const _kPrefCustom   = 'activity_custom';
+  static const _kPrefUid       = 'activity_uid';
+  static const _kPrefOrder     = 'activity_order';
+  static const _kPrefCustom    = 'activity_custom';
   static const _kPrefOverrides = 'activity_overrides';
   static const _kPrefArchived  = 'activity_archived';
 
   @override
   void initState() {
     super.initState();
-    _lastUid = AuthService.currentUser?.uid;
     _loadState();
-    // アカウント切り替えを検知して再ロード
-    _authSub = AuthService.userStream.listen((user) {
-      if (user?.uid != _lastUid) {
-        _lastUid = user?.uid;
-        _loadState();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _authSub?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadState() async {

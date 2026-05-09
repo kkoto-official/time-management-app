@@ -116,6 +116,11 @@ class LocalDb {
     return rows.map(SessionRecord.fromMap).toList();
   }
 
+  static Future<void> clearAll() async {
+    final d = await db;
+    await d.delete('sessions');
+  }
+
   static Future<void> markSynced(List<int> ids) async {
     if (ids.isEmpty) return;
     final d = await db;

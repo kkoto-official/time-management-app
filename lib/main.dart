@@ -11,6 +11,7 @@ import 'screens/tracker_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/act_icon.dart';
+import 'services/auth_service.dart';
 import 'services/local_db.dart';
 import 'services/sync_service.dart';
 
@@ -71,6 +72,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
   int _reportRefreshTrigger = 0;
+  int _accountEpoch = 0; // 変化するとTrackerScreenが再マウントされる
 
   String? _activeId;
   Activity? _activeActivity;
@@ -80,11 +82,42 @@ class _AppShellState extends State<AppShell> {
   DateTime? _startTime;
   Timer? _timer;
 
+  StreamSubscription<dynamic>? _authSub;
+  String? _currentUid;
+
   @override
   void initState() {
     super.initState();
+    _currentUid = AuthService.currentUser?.uid;
     _loadTodayData();
     _syncFromCloud();
+    _authSub = AuthService.userStream.listen((user) {
+      if (user?.uid != _currentUid) {
+        _currentUid = user?.uid;
+        _onAccountSwitch();
+      }
+    });
+  }
+
+  Future<void> _onAccountSwitch() async {
+    // 計測中なら即停止
+    _timer?.cancel();
+    setState(() {
+      _activeId = null;
+      _activeActivity = null;
+      _elapsed = 0;
+      _sessionStartElapsed = 0;
+      _paused = false;
+      _startTime = null;
+      _accountEpoch++;       // TrackerScreen を強制リマウント
+      _reportRefreshTrigger++; // ReportScreen を強制リロード
+      kTodayMin.clear();
+      kWeekData.clear();
+      kMonthData.clear();
+    });
+    // SQLite をクリアして新ユーザーのデータを取得
+    await LocalDb.clearAll();
+    await _syncFromCloud();
   }
 
   Future<void> _syncFromCloud() async {
@@ -165,6 +198,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _timer?.cancel();
     super.dispose();
   }
@@ -195,6 +229,7 @@ class _AppShellState extends State<AppShell> {
         },
       ),
       TrackerScreen(
+        key: ValueKey('tracker_$_accountEpoch'),
         colors: c,
         activeId: _activeId,
         elapsed: _elapsed,
