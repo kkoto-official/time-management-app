@@ -40,12 +40,14 @@ class _TrackerScreenState extends State<TrackerScreen> {
   List<String> _order = kActivities.map((a) => a.id).toList();
   final List<Activity> _customActivities = [];
   final Map<String, Activity> _overrides = {};
+  final Map<String, Activity> _archived = {};
   int? _draggingIndex;
   int? _hoveredIndex;
 
   static const _kPrefOrder = 'activity_order';
   static const _kPrefCustom = 'activity_custom';
   static const _kPrefOverrides = 'activity_overrides';
+  static const _kPrefArchived = 'activity_archived';
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
     final orderList = prefs.getStringList(_kPrefOrder);
     final customList = prefs.getStringList(_kPrefCustom);
     final overridesStr = prefs.getString(_kPrefOverrides);
+    final archivedStr = prefs.getString(_kPrefArchived);
     setState(() {
       if (orderList != null) _order = orderList;
       if (customList != null) {
@@ -70,6 +73,11 @@ class _TrackerScreenState extends State<TrackerScreen> {
         final map = jsonDecode(overridesStr) as Map<String, dynamic>;
         _overrides.clear();
         map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
+      }
+      if (archivedStr != null) {
+        final map = jsonDecode(archivedStr) as Map<String, dynamic>;
+        _archived.clear();
+        map.forEach((k, v) => _archived[k] = Activity.fromJson(v as Map<String, dynamic>));
       }
       _syncGlobals();
     });
@@ -84,6 +92,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
         if (custom != null) return custom;
         return kActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last);
       }));
+    kArchivedActivities
+      ..clear()
+      ..addAll(_archived);
   }
 
   Future<void> _saveState() async {
@@ -93,6 +104,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
     await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());
     await prefs.setString(_kPrefOverrides, jsonEncode({
       for (final e in _overrides.entries) e.key: e.value.toJson()
+    }));
+    await prefs.setString(_kPrefArchived, jsonEncode({
+      for (final e in _archived.entries) e.key: e.value.toJson()
     }));
   }
 
@@ -115,7 +129,20 @@ class _TrackerScreenState extends State<TrackerScreen> {
       builder: (_) => _ActivityFormSheet(
         colors: widget.colors,
         existingLabels: _existingLabelsExcluding(null),
+        archivedByLabel: { for (final e in _archived.entries) e.value.label: e.value },
         onSave: (act) { setState(() { _customActivities.add(act); _order.add(act.id); }); _saveState(); },
+        onRestore: (archived) {
+          setState(() {
+            _archived.remove(archived.id);
+            _order.add(archived.id);
+            if (archived.id.startsWith('custom_')) {
+              _customActivities.add(archived);
+            } else {
+              _overrides[archived.id] = archived;
+            }
+          });
+          _saveState();
+        },
       ),
     );
   }
@@ -144,6 +171,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
         },
         onDelete: (delId) {
           setState(() {
+            _archived[delId] = act; // 論理削除：メタデータを保持
             _order.remove(delId);
             _customActivities.removeWhere((a) => a.id == delId);
             _overrides.remove(delId);
@@ -302,7 +330,9 @@ class _TrackerScreenState extends State<TrackerScreen> {
           else { widget.onTap(id, act); }
         },
         onRemove: () {
+          final act = _getActivity(id);
           setState(() {
+            _archived[id] = act; // 論理削除：メタデータを保持
             _order.remove(id);
             _customActivities.removeWhere((a) => a.id == id);
           });
@@ -598,14 +628,18 @@ const _kColorChoices = [
 class _ActivityFormSheet extends StatefulWidget {
   final AppColors colors;
   final Set<String> existingLabels;
+  final Map<String, Activity> archivedByLabel;
   final void Function(Activity) onSave;
+  final void Function(Activity)? onRestore;
   final Activity? editing;
   final void Function(String)? onDelete;
 
   const _ActivityFormSheet({
     required this.colors,
     required this.existingLabels,
+    this.archivedByLabel = const {},
     required this.onSave,
+    this.onRestore,
     this.editing,
     this.onDelete,
   });
@@ -685,6 +719,47 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
       setState(() => _nameError = '「$name」はすでに存在します');
       return;
     }
+
+    // 論理削除済みアクティビティと同名の場合は復元を提案
+    final archivedMatch = widget.archivedByLabel[name];
+    if (archivedMatch != null && widget.onRestore != null) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text('「$name」を復元しますか？'),
+          content: const Text('以前削除されたアクティビティです。\n復元すると過去の記録も引き継がれます。'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pop();
+                widget.onRestore!(archivedMatch);
+              },
+              child: const Text('復元する'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                final act = Activity(
+                  id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                  label: name,
+                  color: _color,
+                  tint: _tintFrom(_color),
+                  icon: _icon,
+                  imagePath: _imagePath,
+                );
+                widget.onSave(act);
+                Navigator.of(context).pop();
+              },
+              child: const Text('新しく作る'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final e = widget.editing;
     final act = Activity(
       id: e?.id ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',

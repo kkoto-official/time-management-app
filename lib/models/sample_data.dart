@@ -24,6 +24,15 @@ final kTimeline = <TimelineSegment>[];
 // TrackerScreen が SharedPreferences ロード後・各ミューテーション後に同期する
 final List<Activity> kAllActivities = List.of(kActivities);
 
+// 論理削除済みアクティビティ（id → Activity）
+// DB上の過去データを正しい名前・色で表示するために保持する
+final Map<String, Activity> kArchivedActivities = {};
+
 Activity getActivity(String id) {
-  return kAllActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last);
+  return kAllActivities.firstWhere(
+    (a) => a.id == id,
+    orElse: () =>
+        kArchivedActivities[id] ??
+        kActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last),
+  );
 }
