@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../models/activity.dart';
 import '../models/sample_data.dart';
+import '../services/sync_service.dart';
 import '../widgets/act_icon.dart';
 
 class TrackerScreen extends StatefulWidget {
@@ -56,31 +57,77 @@ class _TrackerScreenState extends State<TrackerScreen> {
   }
 
   Future<void> _loadState() async {
+    // Step1: SharedPreferences から即時ロード（オフライン対応・高速）
     final prefs = await SharedPreferences.getInstance();
     final orderList = prefs.getStringList(_kPrefOrder);
     final customList = prefs.getStringList(_kPrefCustom);
     final overridesStr = prefs.getString(_kPrefOverrides);
     final archivedStr = prefs.getString(_kPrefArchived);
+    if (mounted) {
+      setState(() {
+        if (orderList != null) _order = orderList;
+        if (customList != null) {
+          _customActivities.clear();
+          _customActivities.addAll(
+            customList.map((s) => Activity.fromJson(jsonDecode(s) as Map<String, dynamic>)),
+          );
+        }
+        if (overridesStr != null) {
+          final map = jsonDecode(overridesStr) as Map<String, dynamic>;
+          _overrides.clear();
+          map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
+        }
+        if (archivedStr != null) {
+          final map = jsonDecode(archivedStr) as Map<String, dynamic>;
+          _archived.clear();
+          map.forEach((k, v) => _archived[k] = Activity.fromJson(v as Map<String, dynamic>));
+        }
+        _syncGlobals();
+      });
+    }
+
+    // Step2: Firestore から取得して上書き（ログイン済みの場合のみ）
+    final remote = await SyncService.fetchActivities();
+    if (remote == null || !mounted) return;
     setState(() {
-      if (orderList != null) _order = orderList;
-      if (customList != null) {
-        _customActivities.clear();
-        _customActivities.addAll(
-          customList.map((s) => Activity.fromJson(jsonDecode(s) as Map<String, dynamic>)),
-        );
+      final remoteOrder = remote['order'];
+      if (remoteOrder != null) _order = List<String>.from(remoteOrder as List);
+
+      final remoteCustom = remote['custom'];
+      if (remoteCustom != null) {
+        _customActivities
+          ..clear()
+          ..addAll((remoteCustom as List).map(
+            (m) => Activity.fromJson(Map<String, dynamic>.from(m as Map)),
+          ));
       }
-      if (overridesStr != null) {
-        final map = jsonDecode(overridesStr) as Map<String, dynamic>;
+
+      final remoteOverrides = remote['overrides'];
+      if (remoteOverrides != null) {
         _overrides.clear();
-        map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
+        (remoteOverrides as Map).forEach((k, v) =>
+          _overrides[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
       }
-      if (archivedStr != null) {
-        final map = jsonDecode(archivedStr) as Map<String, dynamic>;
+
+      final remoteArchived = remote['archived'];
+      if (remoteArchived != null) {
         _archived.clear();
-        map.forEach((k, v) => _archived[k] = Activity.fromJson(v as Map<String, dynamic>));
+        (remoteArchived as Map).forEach((k, v) =>
+          _archived[k as String] = Activity.fromJson(Map<String, dynamic>.from(v as Map)));
       }
+
       _syncGlobals();
     });
+    // Firestore の内容でローカルキャッシュも更新
+    await _saveLocalPrefs();
+  }
+
+  Future<void> _saveLocalPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPrefOrder, _order);
+    await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());
+    await prefs.setString(_kPrefOverrides, jsonEncode({for (final e in _overrides.entries) e.key: e.value.toJson()}));
+    await prefs.setString(_kPrefArchived, jsonEncode({for (final e in _archived.entries) e.key: e.value.toJson()}));
   }
 
   void _syncGlobals() {
@@ -99,15 +146,14 @@ class _TrackerScreenState extends State<TrackerScreen> {
 
   Future<void> _saveState() async {
     _syncGlobals();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_kPrefOrder, _order);
-    await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());
-    await prefs.setString(_kPrefOverrides, jsonEncode({
-      for (final e in _overrides.entries) e.key: e.value.toJson()
-    }));
-    await prefs.setString(_kPrefArchived, jsonEncode({
-      for (final e in _archived.entries) e.key: e.value.toJson()
-    }));
+    await _saveLocalPrefs();
+    // Firestore にも非同期保存（ログイン済みの場合のみ・失敗しても継続）
+    SyncService.saveActivities(
+      order: _order,
+      custom: _customActivities.map((a) => a.toJson()).toList(),
+      overrides: {for (final e in _overrides.entries) e.key: e.value.toJson()},
+      archived: {for (final e in _archived.entries) e.key: e.value.toJson()},
+    );
   }
 
   Activity _getActivity(String id) {

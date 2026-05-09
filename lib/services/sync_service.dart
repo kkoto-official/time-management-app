@@ -109,4 +109,39 @@ class SyncService {
 
     return snap.docs.map((d) => d.data()).toList();
   }
+
+  // アクティビティ定義を Firestore に保存（users/{uid}/config/activities）
+  static Future<void> saveActivities({
+    required List<String> order,
+    required List<Map<String, dynamic>> custom,
+    required Map<String, dynamic> overrides,
+    required Map<String, dynamic> archived,
+  }) async {
+    try {
+      final uid = AuthService.currentUser?.uid;
+      if (uid == null) return;
+      await _fs
+          .collection('users').doc(uid)
+          .collection('config').doc('activities')
+          .set({'order': order, 'custom': custom, 'overrides': overrides, 'archived': archived});
+    } catch (e) {
+      debugPrint('[SyncService] saveActivities failed: $e');
+    }
+  }
+
+  // Firestore からアクティビティ定義を取得
+  static Future<Map<String, dynamic>?> fetchActivities() async {
+    try {
+      final uid = AuthService.currentUser?.uid;
+      if (uid == null) return null;
+      final doc = await _fs
+          .collection('users').doc(uid)
+          .collection('config').doc('activities')
+          .get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      debugPrint('[SyncService] fetchActivities failed: $e');
+      return null;
+    }
+  }
 }
