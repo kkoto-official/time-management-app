@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final sorted = data.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final segments = kActivities
+    final segments = kAllActivities
         .where((a) => (data[a.id] ?? 0) > 0)
         .map((a) => DonutSegment(id: a.id, color: a.color, value: data[a.id]!))
         .toList();

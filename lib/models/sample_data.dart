@@ -20,6 +20,10 @@ final kWeekData = <DayData>[];
 final kMonthData = <String, int>{};
 final kTimeline = <TimelineSegment>[];
 
+// プリセット＋カスタム＋上書きを統合した全アクティビティリスト（表示順）
+// TrackerScreen が SharedPreferences ロード後・各ミューテーション後に同期する
+final List<Activity> kAllActivities = List.of(kActivities);
+
 Activity getActivity(String id) {
-  return kActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last);
+  return kAllActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last);
 }

@@ -71,10 +71,23 @@ class _TrackerScreenState extends State<TrackerScreen> {
         _overrides.clear();
         map.forEach((k, v) => _overrides[k] = Activity.fromJson(v as Map<String, dynamic>));
       }
+      _syncGlobals();
     });
   }
 
+  void _syncGlobals() {
+    kAllActivities
+      ..clear()
+      ..addAll(_order.map((id) {
+        if (_overrides.containsKey(id)) return _overrides[id]!;
+        final custom = _customActivities.where((a) => a.id == id).firstOrNull;
+        if (custom != null) return custom;
+        return kActivities.firstWhere((a) => a.id == id, orElse: () => kActivities.last);
+      }));
+  }
+
   Future<void> _saveState() async {
+    _syncGlobals();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_kPrefOrder, _order);
     await prefs.setStringList(_kPrefCustom, _customActivities.map((a) => jsonEncode(a.toJson())).toList());

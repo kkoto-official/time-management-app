@@ -168,7 +168,7 @@ class _ReportScreenState extends State<ReportScreen> {
         final isLoading = !snapshot.hasData;
 
         final sumAll = totals.values.fold(0, (s, v) => s + v);
-        final sorted = kActivities.where((a) => (totals[a.id] ?? 0) > 0).toList()
+        final sorted = kAllActivities.where((a) => (totals[a.id] ?? 0) > 0).toList()
           ..sort((a, b) => (totals[b.id] ?? 0).compareTo(totals[a.id] ?? 0));
 
         return SingleChildScrollView(
@@ -381,7 +381,7 @@ class _StackBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = colors;
-    final maxDay = data.map((d) => kActivities.fold(0, (s, a) => s + (d.minutes[a.id] ?? 0))).fold(0, math.max);
+    final maxDay = data.map((d) => kAllActivities.fold(0, (s, a) => s + (d.minutes[a.id] ?? 0))).fold(0, math.max);
 
     return Column(
       children: [
@@ -392,7 +392,7 @@ class _StackBars extends StatelessWidget {
             children: data.asMap().entries.map((entry) {
               final i = entry.key;
               final d = entry.value;
-              final dayTotal = kActivities.fold(0, (s, a) => s + (d.minutes[a.id] ?? 0));
+              final dayTotal = kAllActivities.fold(0, (s, a) => s + (d.minutes[a.id] ?? 0));
               final barH = maxDay > 0 ? (dayTotal / maxDay) * 140.0 : 0.0;
               final isCurrent = i == todayIndex;
 
@@ -411,7 +411,7 @@ class _StackBars extends StatelessWidget {
                         clipBehavior: Clip.hardEdge,
                         child: Column(
                           verticalDirection: VerticalDirection.up,
-                          children: kActivities.map((act) {
+                          children: kAllActivities.map((act) {
                             final v = d.minutes[act.id] ?? 0;
                             if (v <= 0) return const SizedBox.shrink();
                             return Expanded(
@@ -535,7 +535,7 @@ class _TimelineBar extends StatelessWidget {
 
   Color _colorForId(String activityId) {
     try {
-      return kActivities.firstWhere((a) => a.id == activityId).color;
+      return kAllActivities.firstWhere((a) => a.id == activityId).color;
     } catch (_) {
       return const Color(0xFF9E9E9E);
     }
