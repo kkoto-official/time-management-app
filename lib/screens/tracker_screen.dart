@@ -87,14 +87,27 @@ class _TrackerScreenState extends State<TrackerScreen> {
       });
       await prefs.setString(_kPrefUid, currentUid ?? '');
       await _saveLocalPrefs();
-    } else if (!sameUser) {
-      // 別アカウント or 初回ログイン で Firestore にデータなし → デフォルトにリセット
-      setState(() {
-        _resetToDefaults();
-        _syncGlobals();
-      });
-      await prefs.setString(_kPrefUid, currentUid ?? '');
-      await _saveLocalPrefs();
+    } else {
+      // Firestore にデータなし（初回ログイン・未保存・別アカウント）
+      if (!sameUser) {
+        // 別アカウントならデフォルトにリセット
+        setState(() {
+          _resetToDefaults();
+          _syncGlobals();
+        });
+      }
+      // ログイン済みなら現在の状態を Firestore に書き込む
+      // （以後の切り替え・再ログイン時に確実に取得できるようにする）
+      if (currentUid != null) {
+        await prefs.setString(_kPrefUid, currentUid);
+        await _saveLocalPrefs();
+        SyncService.saveActivities(
+          order: _order,
+          custom: _customActivities.map((a) => a.toJson()).toList(),
+          overrides: {for (final e in _overrides.entries) e.key: e.value.toJson()},
+          archived: {for (final e in _archived.entries) e.key: e.value.toJson()},
+        );
+      }
     }
   }
 
