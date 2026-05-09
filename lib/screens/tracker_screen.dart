@@ -728,7 +728,44 @@ class _ActivityFormSheetState extends State<_ActivityFormSheet> {
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
           title: Text('「$name」を復元しますか？'),
-          content: const Text('以前削除されたアクティビティです。\n復元すると過去の記録も引き継がれます。'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // アーカイブ済みアクティビティのプレビュー
+              Row(
+                children: [
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: archivedMatch.color,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: ActIcon(icon: archivedMatch.icon, size: 22, color: Colors.white, imagePath: archivedMatch.imagePath),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(archivedMatch.label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(width: 12, height: 12, decoration: BoxDecoration(color: archivedMatch.color, shape: BoxShape.circle)),
+                          const SizedBox(width: 4),
+                          Text('アイコン・カラーも引き継がれます', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text('復元すると過去の記録も含めて引き継がれます。', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () {
