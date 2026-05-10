@@ -10,6 +10,7 @@ import 'screens/home_screen.dart';
 import 'screens/tracker_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/splash_screen.dart';
 import 'widgets/act_icon.dart';
 import 'services/auth_service.dart';
 import 'services/local_db.dart';
@@ -34,6 +35,7 @@ class TimeManagementApp extends StatefulWidget {
 
 class _TimeManagementAppState extends State<TimeManagementApp> {
   String _themeName = 'amber';
+  bool _splashDone = false;
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +46,16 @@ class _TimeManagementAppState extends State<TimeManagementApp> {
       theme: ThemeData(
         scaffoldBackgroundColor: colors.bg,
       ),
-      home: AppShell(
-        colors: colors,
-        themeName: _themeName,
-        onThemeChange: (name) => setState(() => _themeName = name),
+      home: Stack(
+        children: [
+          AppShell(
+            colors: colors,
+            themeName: _themeName,
+            onThemeChange: (name) => setState(() => _themeName = name),
+          ),
+          if (!_splashDone)
+            SplashScreen(onDone: () => setState(() => _splashDone = true)),
+        ],
       ),
     );
   }
