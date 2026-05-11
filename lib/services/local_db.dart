@@ -77,18 +77,11 @@ class LocalDb {
         )
       '''),
       onUpgrade: (db, oldVersion, newVersion) async {
-        await db.execute('DROP TABLE IF EXISTS sessions');
-        await db.execute('''
-          CREATE TABLE sessions (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            activityId      TEXT NOT NULL,
-            activityLabel   TEXT NOT NULL,
-            durationSeconds INTEGER NOT NULL,
-            date            TEXT NOT NULL,
-            startedAt       INTEGER NOT NULL,
-            synced          INTEGER NOT NULL DEFAULT 0
-          )
-        ''');
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE sessions ADD COLUMN synced INTEGER NOT NULL DEFAULT 0',
+          );
+        }
       },
     );
   }
