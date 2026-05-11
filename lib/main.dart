@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'models/activity.dart';
@@ -37,6 +38,23 @@ class _TimeManagementAppState extends State<TimeManagementApp> {
   String _themeName = 'amber';
   bool _splashDone = false;
 
+  static const _kThemeKey = 'theme_name';
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      final saved = p.getString(_kThemeKey);
+      if (saved != null && mounted) setState(() => _themeName = saved);
+    });
+  }
+
+  Future<void> _onThemeChange(String name) async {
+    setState(() => _themeName = name);
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kThemeKey, name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = AppThemes.byName(_themeName);
@@ -51,7 +69,7 @@ class _TimeManagementAppState extends State<TimeManagementApp> {
           AppShell(
             colors: colors,
             themeName: _themeName,
-            onThemeChange: (name) => setState(() => _themeName = name),
+            onThemeChange: _onThemeChange,
           ),
           if (!_splashDone)
             SplashScreen(onDone: () => setState(() => _splashDone = true)),
