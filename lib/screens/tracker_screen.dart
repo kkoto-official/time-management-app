@@ -371,6 +371,21 @@ class _TrackerScreenState extends State<TrackerScreen> {
             resolveActivity: _getActivity,
           ),
 
+          if (widget.activeId != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 12, color: c.inkMuted),
+                  const SizedBox(width: 4),
+                  Text(
+                    '計測中はアプリを閉じると記録が失われます',
+                    style: TextStyle(fontSize: 11, color: c.inkMuted),
+                  ),
+                ],
+              ),
+            ),
+
           if (widget.activeId == null && !_editing)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),

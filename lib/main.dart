@@ -273,21 +273,51 @@ class _AppShellState extends State<AppShell> {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: c.bg,
-      body: Stack(
-        children: [
-          IndexedStack(index: _tab, children: screens),
-          Positioned(
-            left: 0, right: 0, bottom: 0,
-            child: _BottomTabBar(
-              current: _tab,
-              colors: c,
-              onTap: (i) => setState(() {
-                if (i == 2) _reportRefreshTrigger++;
-                _tab = i;
-              }),
+    return PopScope(
+      canPop: _activeId == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _showExitWarning(context, c);
+      },
+      child: Scaffold(
+        backgroundColor: c.bg,
+        body: Stack(
+          children: [
+            IndexedStack(index: _tab, children: screens),
+            Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: _BottomTabBar(
+                current: _tab,
+                colors: c,
+                onTap: (i) => setState(() {
+                  if (i == 2) _reportRefreshTrigger++;
+                  _tab = i;
+                }),
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showExitWarning(BuildContext context, AppColors c) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: c.card,
+        title: Text('計測中です', style: TextStyle(color: c.ink, fontWeight: FontWeight.w700)),
+        content: Text('アプリを終了すると現在の計測データが失われます。', style: TextStyle(color: c.inkMuted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('続ける', style: TextStyle(color: c.accent, fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              SystemNavigator.pop();
+            },
+            child: Text('終了', style: TextStyle(color: c.inkMuted)),
           ),
         ],
       ),
