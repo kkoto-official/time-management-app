@@ -379,7 +379,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
                   Icon(Icons.info_outline, size: 12, color: c.inkMuted),
                   const SizedBox(width: 4),
                   Text(
-                    '計測中はアプリを閉じると記録が失われます',
+                    '計測中に強制終了すると記録が失われる場合があります',
                     style: TextStyle(fontSize: 11, color: c.inkMuted),
                   ),
                 ],

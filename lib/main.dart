@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -95,7 +96,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _tab = 0;
   int _reportRefreshTrigger = 0;
   int _accountEpoch = 0; // 変化するとTrackerScreenが再マウントされる
@@ -110,13 +111,23 @@ class _AppShellState extends State<AppShell> {
 
   StreamSubscription<dynamic>? _authSub;
   String? _currentUid;
+  bool _bgRestorePending = false;
+
+  static const _kBgActiveId      = 'bg_active_id';
+  static const _kBgActivity      = 'bg_activity';
+  static const _kBgElapsed       = 'bg_elapsed';
+  static const _kBgSessionStart  = 'bg_session_start';
+  static const _kBgTimeMs        = 'bg_time_ms';
+  static const _kBgPaused        = 'bg_paused';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentUid = AuthService.currentUser?.uid;
     _loadTodayData();
     _syncFromCloud();
+    _restoreBackgroundSession(); // アプリ再起動時にセッション復元
     _authSub = AuthService.userStream.listen((user) {
       if (user?.uid != _currentUid) {
         _currentUid = user?.uid;
@@ -125,9 +136,92 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
-  Future<void> _onAccountSwitch() async {
-    // 計測中なら即停止
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _saveBgSession();
+    } else if (state == AppLifecycleState.resumed) {
+      _restoreBackgroundSession();
+    }
+  }
+
+  Future<void> _saveBgSession() async {
+    if (_activeId == null || _activeActivity == null) return;
     _timer?.cancel();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kBgActiveId, _activeId!);
+    await prefs.setString(_kBgActivity, jsonEncode(_activeActivity!.toJson()));
+    await prefs.setInt(_kBgElapsed, _elapsed);
+    await prefs.setInt(_kBgSessionStart, _sessionStartElapsed);
+    await prefs.setInt(_kBgTimeMs, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setBool(_kBgPaused, _paused);
+  }
+
+  Future<void> _restoreBackgroundSession() async {
+    if (_bgRestorePending) return;
+    _bgRestorePending = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeId = prefs.getString(_kBgActiveId);
+      if (activeId == null) return;
+
+      final activityJson = prefs.getString(_kBgActivity);
+      final savedElapsed     = prefs.getInt(_kBgElapsed) ?? 0;
+      final savedSessionStart = prefs.getInt(_kBgSessionStart) ?? 0;
+      final bgTimeMs  = prefs.getInt(_kBgTimeMs) ?? DateTime.now().millisecondsSinceEpoch;
+      final wasPaused = prefs.getBool(_kBgPaused) ?? false;
+
+      await prefs.remove(_kBgActiveId);
+      await prefs.remove(_kBgActivity);
+      await prefs.remove(_kBgElapsed);
+      await prefs.remove(_kBgSessionStart);
+      await prefs.remove(_kBgTimeMs);
+      await prefs.remove(_kBgPaused);
+
+      final additionalSecs = wasPaused
+          ? 0
+          : (DateTime.now().millisecondsSinceEpoch - bgTimeMs) ~/ 1000;
+      final restoredElapsed = savedElapsed + additionalSecs;
+
+      Activity? activity;
+      if (activityJson != null) {
+        try {
+          activity = Activity.fromJson(jsonDecode(activityJson) as Map<String, dynamic>);
+        } catch (_) {}
+      }
+      activity ??= getActivity(activeId);
+
+      if (!mounted) return;
+      setState(() {
+        _activeId = activeId;
+        _activeActivity = activity;
+        _elapsed = restoredElapsed;
+        _sessionStartElapsed = savedSessionStart;
+        _paused = wasPaused;
+        _startTime = DateTime.now()
+            .subtract(Duration(seconds: restoredElapsed - savedSessionStart));
+      });
+
+      if (!wasPaused) {
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (!_paused) setState(() => _elapsed++);
+        });
+      }
+    } finally {
+      _bgRestorePending = false;
+    }
+  }
+
+  Future<void> _onAccountSwitch() async {
+    // 計測中なら即停止・バックグラウンド保存も破棄
+    _timer?.cancel();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kBgActiveId);
+    await prefs.remove(_kBgActivity);
+    await prefs.remove(_kBgElapsed);
+    await prefs.remove(_kBgSessionStart);
+    await prefs.remove(_kBgTimeMs);
+    await prefs.remove(_kBgPaused);
     setState(() {
       _activeId = null;
       _activeActivity = null;
@@ -224,6 +318,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSub?.cancel();
     _timer?.cancel();
     super.dispose();
@@ -306,7 +401,7 @@ class _AppShellState extends State<AppShell> {
       builder: (ctx) => AlertDialog(
         backgroundColor: c.card,
         title: Text('計測中です', style: TextStyle(color: c.ink, fontWeight: FontWeight.w700)),
-        content: Text('アプリを終了すると現在の計測データが失われます。', style: TextStyle(color: c.inkMuted)),
+        content: Text('強制終了すると現在の計測データが失われる場合があります。', style: TextStyle(color: c.inkMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
