@@ -15,10 +15,10 @@ const _kDotColors = [
   Color(0xFF6B5A4B), // other
 ];
 
-const _kBgDark   = Color(0xFF6B3A12);
-const _kBgMid    = Color(0xFFB8681E);
-const _kCenter   = Color(0xFFE8C09A);
-const _kHandClr  = Color(0xFF2A1E14);
+const _kBgLight  = Color(0xFFFBF5EC); // amber theme bg
+const _kBgDeep   = Color(0xFFF0DEC8); // slightly deeper warm cream
+const _kCenter   = Color(0xFFC2410C); // amber theme accent
+const _kHandClr  = Color(0xFFFFFFFF); // white hands on accent circle
 
 /// スプラッシュ画面とアイコン生成の共通描画クラス。
 /// [dotsProgress] 0→1 でドットが順に出現する。
@@ -43,7 +43,7 @@ class AppIconPainter extends CustomPainter {
         ..shader = RadialGradient(
           center: Alignment.center,
           radius: 0.85,
-          colors: [_kBgMid, _kBgDark],
+          colors: [_kBgLight, _kBgDeep],
         ).createShader(bgRect),
     );
 
@@ -81,27 +81,19 @@ class AppIconPainter extends CustomPainter {
 
     final cp = centerProgress;
 
-    // グロー
+    // グロー（アクセントカラーの柔らかい影）
     canvas.drawCircle(
       Offset(cx, cy),
       min * 0.18 * cp,
       Paint()
-        ..color = _kCenter.withAlpha((50 * cp).round())
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+        ..color = _kCenter.withAlpha((40 * cp).round())
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
     );
-    // 白縁
-    canvas.drawCircle(
-      Offset(cx, cy),
-      min * 0.13 * cp,
-      Paint()
-        ..color = const Color(0xFFFFFFFF).withAlpha((30 * cp).round())
-        ..style = PaintingStyle.fill,
-    );
-    // 中央円
+    // 中央円（アクセントカラー）
     canvas.drawCircle(
       Offset(cx, cy),
       min * 0.12 * cp,
-      Paint()..color = _kCenter.withAlpha((230 * cp).round()),
+      Paint()..color = _kCenter.withAlpha((255 * cp).round()),
     );
 
     // 時計の針（centerProgress > 0.5 から出現）
