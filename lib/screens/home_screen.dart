@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/activity.dart';
 import '../models/sample_data.dart';
+import '../services/auth_service.dart';
 import '../services/local_db.dart';
 import '../widgets/donut_chart.dart';
 import '../widgets/act_icon.dart';
@@ -153,6 +154,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+
+          // Login prompt banner
+          if (AuthService.currentUser == null)
+            _LoginPromptBanner(colors: c, onTap: widget.onGoSettings),
 
           // Live bar
           if (widget.activeActivity != null) _LiveBar(
@@ -428,6 +433,64 @@ class _LiveBar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginPromptBanner extends StatelessWidget {
+  final AppColors colors;
+  final VoidCallback onTap;
+  const _LoginPromptBanner({required this.colors, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: c.accentSoft,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: c.accent.withAlpha(40)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  color: c.accent.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(child: ActIcon(icon: 'user', size: 18, color: c.accent)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ログインして記録を残しませんか？',
+                      style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700, color: c.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'アカウントで記録を管理・複数端末で共有できます',
+                      style: TextStyle(fontSize: 11, color: c.inkMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ActIcon(icon: 'arrow_right', size: 16, color: c.inkMuted),
+            ],
+          ),
         ),
       ),
     );

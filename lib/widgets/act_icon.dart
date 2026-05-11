@@ -37,6 +37,8 @@ class ActIcon extends StatelessWidget {
     'music':     Icons.music_note,
     'camera':    Icons.camera_alt,
     'clean':     Icons.cleaning_services,
+    'user':      Icons.person_outline,
+    'arrow_right': Icons.arrow_forward_ios,
   };
 
   @override
