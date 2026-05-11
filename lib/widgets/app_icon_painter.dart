@@ -15,8 +15,8 @@ const _kDotColors = [
   Color(0xFF6B5A4B), // other
 ];
 
-const _kBgDark   = Color(0xFF0F0804);
-const _kBgMid    = Color(0xFF3D2010);
+const _kBgDark   = Color(0xFF6B3A12);
+const _kBgMid    = Color(0xFFB8681E);
 const _kCenter   = Color(0xFFE8C09A);
 const _kHandClr  = Color(0xFF2A1E14);
 
