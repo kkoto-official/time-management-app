@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1049915736849-9gicmhmduj5397tv1sh3ct9or6gcqj77.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jp.i_standard.time_management_app",
+            "certificate_hash": "522cc1d0ad4030319156955b66e01a28273e71e4"
+          }
+        },
+        {
           "client_id": "1049915736849-ong9ai7kfl2jk1jq7sgtk727a5vqig9s.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +37,13 @@
             {
               "client_id": "1049915736849-ong9ai7kfl2jk1jq7sgtk727a5vqig9s.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "1049915736849-dfnpvatb8db562eqqkeun5n0r2hre4of.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "jp.istandard.timeManagementApp"
+              }
             }
           ]
         }

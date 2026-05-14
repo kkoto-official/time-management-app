@@ -8,9 +8,13 @@ class AuthService {
   static Stream<User?> get userStream => _auth.authStateChanges();
   static User? get currentUser => _auth.currentUser;
 
+  // Web クライアント ID（google-services.json の client_type:3）
+  static const _webClientId =
+      '1049915736849-ong9ai7kfl2jk1jq7sgtk727a5vqig9s.apps.googleusercontent.com';
+
   static Future<void> _ensureGoogleInitialized() async {
     if (_googleInitialized) return;
-    await GoogleSignIn.instance.initialize();
+    await GoogleSignIn.instance.initialize(serverClientId: _webClientId);
     _googleInitialized = true;
   }
 

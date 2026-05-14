@@ -253,8 +253,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 children: [
-                  _SettingsRow(label: 'エクスポート', value: 'CSV · JSON', colors: c),
-                  _SettingsRow(label: 'バックアップ',  value: 'iCloud',    colors: c, last: true),
+                  _SettingsRow(label: 'エクスポート', value: 'CSV · JSON', colors: c, disabled: true),
+                  _SettingsRow(label: 'バックアップ',  value: 'iCloud',    colors: c, last: true, disabled: true),
                 ],
               ),
             ),
@@ -284,6 +284,7 @@ class _SettingsRow extends StatelessWidget {
   final String value;
   final AppColors colors;
   final bool last;
+  final bool disabled;
   final VoidCallback? onTap;
   final Widget? trailing;
 
@@ -292,6 +293,7 @@ class _SettingsRow extends StatelessWidget {
     required this.value,
     required this.colors,
     this.last = false,
+    this.disabled = false,
     this.onTap,
     this.trailing,
   });
@@ -299,25 +301,38 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = colors;
-    final hasAction = onTap != null || trailing != null;
+    final hasAction = !disabled && (onTap != null || trailing != null);
     return GestureDetector(
-      onTap: onTap,
+      onTap: disabled ? null : onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(border: last ? null : Border(bottom: BorderSide(color: c.line))),
-        child: Row(
-          children: [
-            Expanded(child: Text(label, style: TextStyle(fontSize: 15, color: c.ink, fontWeight: FontWeight.w500))),
-            if (value.isNotEmpty)
-              Text(value, style: TextStyle(fontSize: 14, color: c.inkMuted)),
-            if (trailing != null)
-              trailing!
-            else if (hasAction) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right, size: 16, color: c.inkSubtle),
+      child: Opacity(
+        opacity: disabled ? 0.45 : 1.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(border: last ? null : Border(bottom: BorderSide(color: c.line))),
+          child: Row(
+            children: [
+              Expanded(child: Text(label, style: TextStyle(fontSize: 15, color: c.ink, fontWeight: FontWeight.w500))),
+              if (disabled)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: c.bgDeep,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: c.line),
+                  ),
+                  child: Text('準備中', style: TextStyle(fontSize: 11, color: c.inkMuted, fontWeight: FontWeight.w600)),
+                )
+              else if (value.isNotEmpty)
+                Text(value, style: TextStyle(fontSize: 14, color: c.inkMuted)),
+              if (trailing != null)
+                trailing!
+              else if (hasAction) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.chevron_right, size: 16, color: c.inkSubtle),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

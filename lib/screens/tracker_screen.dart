@@ -433,6 +433,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
         elapsed: isActive ? widget.elapsed : 0,
         todayMin: kTodayMin[id] ?? 0,
         editing: _editing,
+        compact: _cols == 3,
         colors: c,
         isDragTarget: isHovered,
         onTap: () {
@@ -612,6 +613,7 @@ class _ActivityTile extends StatelessWidget {
   final int elapsed;
   final int todayMin;
   final bool editing;
+  final bool compact;
   final bool isDragTarget;
   final AppColors colors;
   final VoidCallback onTap;
@@ -620,7 +622,8 @@ class _ActivityTile extends StatelessWidget {
   const _ActivityTile({
     required this.act, required this.isActive, required this.elapsed,
     required this.todayMin, required this.editing, required this.colors,
-    required this.onTap, required this.onRemove, this.isDragTarget = false,
+    required this.onTap, required this.onRemove,
+    this.compact = false, this.isDragTarget = false,
   });
 
   @override
@@ -629,6 +632,11 @@ class _ActivityTile extends StatelessWidget {
     final bg = isActive ? act.color : c.card;
     final textColor = isActive ? Colors.white : c.ink;
     final subColor = isActive ? Colors.white70 : c.inkMuted;
+    final pad = compact ? 10.0 : 14.0;
+    final iconSize = compact ? 34.0 : 40.0;
+    final iconInner = compact ? 18.0 : 22.0;
+    final labelSize = compact ? 13.0 : 15.0;
+    final subSize = compact ? 11.0 : 12.0;
 
     return Stack(
       clipBehavior: Clip.none,
@@ -637,7 +645,7 @@ class _ActivityTile extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(pad),
             decoration: BoxDecoration(
               color: isDragTarget ? act.color.withAlpha(20) : bg,
               borderRadius: BorderRadius.circular(22),
@@ -652,12 +660,12 @@ class _ActivityTile extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      width: 40, height: 40,
+                      width: iconSize, height: iconSize,
                       decoration: BoxDecoration(
                         color: isActive ? Colors.white.withAlpha(56) : act.tint,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Center(child: ActIcon(icon: act.icon, size: 22, color: isActive ? Colors.white : act.color, imagePath: act.imagePath)),
+                      child: Center(child: ActIcon(icon: act.icon, size: iconInner, color: isActive ? Colors.white : act.color, imagePath: act.imagePath)),
                     ),
                     const Spacer(),
                     if (isActive)
@@ -671,11 +679,11 @@ class _ActivityTile extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                Text(act.label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textColor, letterSpacing: -0.3)),
+                Text(act.label, style: TextStyle(fontSize: labelSize, fontWeight: FontWeight.w700, color: textColor, letterSpacing: -0.3)),
                 const SizedBox(height: 2),
                 Text(
                   editing ? 'タップで編集' : (isActive ? fmtClock(elapsed) : (todayMin > 0 ? '今日 ${fmtHMSShort(todayMin)}' : '—')),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: subColor),
+                  style: TextStyle(fontSize: subSize, fontWeight: FontWeight.w600, color: subColor),
                 ),
               ],
             ),
